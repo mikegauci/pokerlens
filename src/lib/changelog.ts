@@ -23,6 +23,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-11-14",
     title: "Production story: error monitoring, health check, changelog and CI",
+    pr: 12,
     roadmap: "Production story",
     href: "/changelog",
     summary: "The app now reports its own errors, says which commit is running, and is checked by CI on every pull request.",
