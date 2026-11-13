@@ -142,11 +142,14 @@ export function RangeTrainer() {
             {result && answered && (
               <>
                 <p className={`text-base font-semibold ${result.correct ? "text-accent" : "text-rose-300"}`}>
-                  {result.correct ? "Correct." : `Not what the chart does: you chose ${answered.choice}.`} The chart {result.expected === "raise" ? `${raiseName(deal.spot)}s` : `${result.expected}s`} {deal.hand}.
+                  {result.correct ? "Correct." : `Not what the chart does: you chose ${answered.choice}.`}{" "}
+                  {Math.max(result.freq.raise, result.freq.call, result.freq.fold) < 1
+                    ? `The chart mixes ${deal.hand}: ${(["raise", "call", "fold"] as const).filter((a) => result.freq[a] > 0).map((a) => `${a === "raise" ? raiseName(deal.spot) : a} ${Math.round(result.freq[a] * 100)}%`).join(", ")}.`
+                    : `The chart ${result.expected === "raise" ? `${raiseName(deal.spot)}s` : `${result.expected}s`} ${deal.hand}.`}
                 </p>
                 <p className="mt-1.5 text-muted">{explain(deal.spot, deal.hand)}</p>
                 {result.borderline && (
-                  <p className="mt-1.5 text-amber-200">Close spot: {deal.hand} sits on the edge of this chart, so the other answer loses very little and a solver may mix it.</p>
+                  <p className="mt-1.5 text-amber-200">Close spot: {deal.hand} sits on the edge of this chart, so the other answer loses very little.</p>
                 )}
                 <p className="mt-1.5 text-xs text-muted">{result.correct ? "It will come back later to check it has stuck." : "It will come back in a few hands."}</p>
                 <button ref={nextButton} type="button" onClick={next} className="mt-3 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-emerald-950 hover:bg-emerald-300">

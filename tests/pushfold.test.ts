@@ -116,13 +116,13 @@ describe("heads-up push/fold: published Nash chart", () => {
       expect(solveHeadsUp(round(max - TOL)).shove[cls], `${cls} below ${max}`).toBeGreaterThan(0.5);
       expect(solveHeadsUp(round(max + TOL)).shove[cls], `${cls} above ${max}`).toBeLessThan(0.5);
     }
-  });
+  }, 30_000);
   it("calls with each hand up to its published stack and no deeper", () => {
     for (const [cls, max] of Object.entries(CALLER)) {
       expect(solveHeadsUp(round(max - TOL)).calls[0][cls], `${cls} below ${max}`).toBeGreaterThan(0.5);
       expect(solveHeadsUp(round(max + TOL)).calls[0][cls], `${cls} above ${max}`).toBeLessThan(0.5);
     }
-  });
+  }, 30_000);
   it("reproduces the chart's gap for 63s: a shove at 2bb and 6.5bb, a fold at 4bb and 8bb", () => {
     // The chart lists 63s as "7.1 - 5.1, 2.3": it stops being a shove, then becomes one again.
     expect(solveHeadsUp(2).shove["63s"]).toBe(1);

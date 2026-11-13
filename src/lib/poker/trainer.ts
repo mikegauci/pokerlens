@@ -1,11 +1,12 @@
 import { Card, hashString, mulberry32 } from "./cards";
-import { ChartPair, chart, facingOpenCharts, facingThreeBetCharts, firstInCharts } from "./charts";
+import { ChartPair, chart, facingOpenCharts, facingThreeBetCharts, firstInCharts, frequencies } from "./charts";
 import { ALL_CLASSES, GRID, combosOfClass } from "./ranges";
 
 /**
  * Preflop range trainer: deals "position, action so far, hand" spots and checks the answer
- * against the simplified charts in `charts.ts`. Those charts are binary 6-max 100bb
- * approximations, not solver output, so a "wrong" answer on a borderline hand is close.
+ * against the simplified 6-max 100bb charts in `charts.ts`. Those are approximations, not solver
+ * output. Some hands are mixed: the chart plays them more than one way, and any action it takes at
+ * least a quarter of the time counts as correct.
  *
  * Everything here is pure. The deal is a function of the stored progress (seed and turn),
  * so the same progress always produces the same spot.
@@ -261,9 +262,15 @@ export function dealSpot(p: TrainerProgress): Deal {
   return { spot, hand, cards: rng() < 0.5 ? [a, b] : [b, a], review: Boolean(scheduled) };
 }
 
+/** A mixed hand's action counts as correct when the chart takes it at least this often. */
+export const MIXED_ACCEPT = 0.25;
+
 export interface AnswerResult {
   correct: boolean;
+  /** The chart's most frequent action for this hand. */
   expected: TrainerAction;
+  /** How often the chart raises, calls and folds this hand. */
+  freq: Record<TrainerAction, number>;
   /** True when the hand sits on the edge of the chart, where the simplification matters most. */
   borderline: boolean;
   progress: TrainerProgress;
@@ -272,7 +279,8 @@ export interface AnswerResult {
 /** Scores an answer and returns the updated progress. Does not mutate its input. */
 export function answerSpot(p: TrainerProgress, deal: Deal, answer: TrainerAction): AnswerResult {
   const expected = correctAction(deal.spot, deal.hand);
-  const correct = answer === expected;
+  const freq = frequencies(spotCharts(deal.spot), deal.hand);
+  const correct = answer === expected || freq[answer] >= MIXED_ACCEPT;
   const key = itemKey(deal.spot, deal.hand);
   const prev = p.items[key];
   const box = correct ? Math.min(RETIRED_BOX, prev ? prev.box + 1 : FIRST_CORRECT_BOX) : 0;
@@ -282,6 +290,7 @@ export function answerSpot(p: TrainerProgress, deal: Deal, answer: TrainerAction
   return {
     correct,
     expected,
+    freq,
     borderline: spotRange(deal.spot).edge[deal.hand] <= 1,
     progress: {
       ...p,

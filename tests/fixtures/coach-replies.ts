@@ -13,7 +13,7 @@ export const COACH_REPLIES: Record<string, RecordedReply> = {
   "river-lead": {
     grounded: `Folding the river was the costly decision; everything before it was standard.
 
-**Biggest leak**: #4, river fold. You needed 29% equity to call 16bb into 38.5bb and had 55% against the assumed BB defend range, so calling was worth about +14.2bb. AJs is second pair on Js 8d 3c 5h Kd, and the BB's range still holds plenty of Jx, 8x and missed draws that lead this card. Call.
+**Biggest leak**: #4, river fold. You needed 29% equity to call 16bb into 38.5bb and had 55% against the assumed BB defend range, so calling was worth about +14.1bb. AJs is second pair on Js 8d 3c 5h Kd, and the BB's range still holds plenty of Jx, 8x and missed draws that lead this card. Call.
 
 **Street by street**: The flop bet of 2bb (36% of pot) with top pair at SPR 17.7 was a fine value bet. The turn bet of 6.5bb, 68% of pot with 90% equity, was also right. Against a player who rarely bluffs the fold gets closer, so that is the read that would change the answer.
 
@@ -40,9 +40,9 @@ export const COACH_REPLIES: Record<string, RecordedReply> = {
   "kjo-3bet-pot": {
     grounded: `Two mistakes: a loose call of the 3-bet preflop and a hero call on the river.
 
-**Biggest leak**: #8, the river call. You needed 33% equity to call 67.5bb and had 9% against MrThreeBet's narrowed 3-bet range, about 19 combos. The call lost about 50bb. When a 3-bettor barrels three streets and jams, KJ with top pair is a bluff-catcher that beats almost nothing he gets there with. Fold.
+**Biggest leak**: #8, the river call. You needed 33% equity to call 67.5bb and had 6% against MrThreeBet's narrowed 3-bet range, about 18 combos. The call lost about 56bb. When a 3-bettor barrels three streets and jams, KJ with top pair is a bluff-catcher that beats almost nothing he gets there with. Fold.
 
-**Street by street**: Preflop, calling 5.5bb with KJo out of position is a fold per the CO-versus-3-bet chart, even though the raw numbers (34% vs 31% needed, +0.5bb) look close. The flop call of 5.5bb with 63% equity was good. The turn call of 19bb with 37% against 29% needed was fine.
+**Street by street**: Preflop, calling 5.5bb with KJo out of position is a fold per the CO-versus-3-bet chart, even though the raw numbers (33% vs 31% needed, +0.3bb) look close, and out of position it realises only about 26%. The flop call of 5.5bb with 57% equity was good. The turn call of 19bb with 33% against 29% needed was close.
 
 **Takeaway**: Drill the CO versus BTN 3-bet chart until KJo is an automatic fold.`,
     invented: [
@@ -54,7 +54,7 @@ export const COACH_REPLIES: Record<string, RecordedReply> = {
       {
         why: "an EV in big blinds that is not on the sheet",
         flagged: ["35bb"],
-        reply: "The river call lost about 50bb, and the whole hand cost you around 35bb in expectation.",
+        reply: "The river call lost about 56bb, and the whole hand cost you around 35bb in expectation.",
       },
     ],
   },
@@ -62,7 +62,7 @@ export const COACH_REPLIES: Record<string, RecordedReply> = {
   "flush-draw-price": {
     grounded: `The turn call was loose; the rest of the hand was played well.
 
-**Biggest leak**: #5, the turn call. You needed 32% equity to call 8bb into 17.1bb and had 22% with the 7-high flush draw, so the call loses about 2.4bb on direct odds. It is an inaccuracy rather than a mistake because a flush can still win more on the river, but those implied odds are thin out of position.
+**Biggest leak**: #5, the turn call. You needed 32% equity to call 8bb into 17.1bb and had 22% with the 7-high flush draw, so the call loses about 2.5bb on direct odds. It is an inaccuracy rather than a mistake because a flush can still win more on the river, but those implied odds are thin out of position.
 
 **Street by street**: Calling 1.5bb preflop with 76s in the BB was fine (+0.7bb), though the chart prefers a raise. The flop call of 1.8bb with 40% equity against 20% needed was clearly right. The river fold with 0% equity was correct.
 
@@ -70,8 +70,8 @@ export const COACH_REPLIES: Record<string, RecordedReply> = {
     invented: [
       {
         why: "an outs count and a rule-of-two equity",
-        flagged: ["9", "18%"],
-        reply: "With 9 outs you have about 18% to hit on the river.",
+        flagged: ["9", "17%"],
+        reply: "With 9 outs you have about 17% to hit on the river.",
       },
       {
         why: "an implied-odds amount the engine did not compute",
@@ -92,13 +92,13 @@ export const COACH_REPLIES: Record<string, RecordedReply> = {
     invented: [
       {
         why: "a recommended size in big blinds",
-        flagged: ["14bb"],
-        reply: "Bet around 14bb on the river; he calls with any king.",
+        flagged: ["12bb"],
+        reply: "Bet around 12bb on the river; he calls with any king.",
       },
       {
         why: "a recommended size as a fraction of pot",
-        flagged: ["75%"],
-        reply: "A 75% pot bet on the river gets called by Kx.",
+        flagged: ["80%"],
+        reply: "An 80% pot bet on the river gets called by Kx.",
       },
     ],
   },
@@ -106,9 +106,9 @@ export const COACH_REPLIES: Record<string, RecordedReply> = {
   "jj-vs-jam": {
     grounded: `The 3-bet was right; calling the 100bb jam was the mistake.
 
-**Biggest leak**: #2, calling 89bb with JJ. Against a CO 4-bet range of QQ+, AKs, AKo and A5s (38 combos), JJ has 39% equity and needed 44%, so the call lost about 9.8bb. This is an all-in, so the comparison is exact for that range.
+**Biggest leak**: #2, calling 89bb with JJ. Against a CO 4-bet range of KK+, AKs and most of QQ and AKo, with A5s mixed in (31.5 combos), JJ has 37% equity and needed 44%, so the call lost about 14.6bb. This is an all-in, so the comparison is exact for that range.
 
-**Street by street**: The 3-bet to 11bb from the SB was standard; the chart recommends a raise and JJ had 67% against the CO open range.
+**Street by street**: The 3-bet to 11bb from the SB was standard; the chart recommends a raise and JJ had 66% against the CO open range.
 
 **Takeaway**: Before you 3-bet, decide what you do against a 4-bet jam, and fold JJ when the 4-bet range is this tight.`,
     invented: [
@@ -128,7 +128,7 @@ export const COACH_REPLIES: Record<string, RecordedReply> = {
   "mtt-short-stack": {
     grounded: `A good call: KQs has enough equity against a short-stack reshove.
 
-**Biggest leak**: None. The call of 9.6bb into 14.9bb needed 39% equity and KQs had 53% against the reshove range, worth about +3.2bb.
+**Biggest leak**: None. The call of 9.6bb into 14.9bb needed 39% equity and KQs had 51% against the reshove range, worth about +2.9bb.
 
 **Street by street**: The 2bb open on the BTN with 31bb was standard. The reshove range comes from a push/fold equilibrium at 11.8bb effective, an approximation: it assumes chip EV, no ICM, and that only the opener can call.
 

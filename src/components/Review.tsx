@@ -468,6 +468,18 @@ function DecisionPanel({
           : d.action.type;
   const facing = d.toCall > 0 && d.potOdds !== undefined && d.equity !== undefined && d.villains.length > 0;
   const callEvBb = d.evCall === undefined ? undefined : rounded(d.evCall / bb);
+  const real = d.realization && d.realization.factor < 1 ? d.realization : null;
+  const realEvBb = real?.evCall === undefined ? undefined : rounded(real.evCall / bb);
+  const barEquity = real ? real.equity : d.equity;
+  const g = d.aggression;
+  const gainBb = g ? rounded(g.gain / bb) : undefined;
+  const chartMix = d.chart
+    ? [
+        d.chart.freq.raise > 0 && `raise ${pct(d.chart.freq.raise)}`,
+        d.chart.freq.call > 0 && `call ${pct(d.chart.freq.call)}`,
+        d.chart.freq.fold > 0 && `${d.toCall > 0 ? "fold" : "check"} ${pct(d.chart.freq.fold)}`,
+      ].filter(Boolean).join(" · ")
+    : "";
 
   return (
     <section className="p-4" aria-label="Selected decision">
@@ -498,13 +510,31 @@ function DecisionPanel({
         <span className="ml-2 font-medium text-ink">{d.title}</span>
         {d.evLossBb ? <span className="tabular ml-2 text-sm">about {num(d.evLossBb)}bb lost</span> : null}
       </div>
+      {d.chart && (
+        <p className="mt-2 text-sm text-muted">
+          <span className="font-medium text-ink">{d.chart.depthLabel}</span> plays {heroClass} here: <span className="tabular text-ink">{chartMix}</span>
+        </p>
+      )}
 
       <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Tile label="Pot" value={inBb(d.pot)} />
         {d.equity !== undefined && <Tile label={d.street === "preflop" && !d.exact ? "Raw equity" : "Your equity"} value={pct(d.equity)} hint="Against the assumed range below" />}
         {facing && <Tile label={d.exact ? "Equity needed" : "Needed on price alone"} value={pct(d.potOdds!)} hint={`${inBb(d.toCall)} to win ${inBb(d.pot)}`} />}
         {facing && callEvBb !== undefined && d.exact && <Tile label="EV of calling" value={signedBb(callEvBb)} hint="Compared with folding" tone={signedTone(callEvBb)} />}
-        {facing && callEvBb !== undefined && !d.exact && d.street !== "preflop" && <Tile label="EV if checked down" value={signedBb(callEvBb)} hint="Ignores betting on later streets" tone={signedTone(callEvBb)} />}
+        {real && <Tile label="Realised equity" value={pct(real.equity)} hint={`${pct(d.equity!)} raw × ${real.factor}, rule of thumb`} />}
+        {facing && callEvBb !== undefined && !d.exact && d.street !== "preflop" && (
+          real && realEvBb !== undefined
+            ? <Tile label="EV of calling" value={signedBb(realEvBb)} hint={`Realised equity, checked down. Raw: ${signedBb(callEvBb)}`} tone={signedTone(realEvBb)} />
+            : <Tile label="EV if checked down" value={signedBb(callEvBb)} hint="Ignores betting on later streets" tone={signedTone(callEvBb)} />
+        )}
+        {g && gainBb !== undefined && (
+          <Tile
+            label={g.actual ? `EV of your ${g.kind}` : g.kind === "raise" ? `Raise to ${inBb(g.to!)}` : `Bet ${inBb(g.added)}`}
+            value={signedBb(gainBb)}
+            hint={`Versus ${g.passive === "check" ? "checking" : g.passive === "call" ? "calling" : "folding"}; folds ${pct(g.foldPct)}${d.street === "river" ? "" : ", one street only"}`}
+            tone={signedTone(gainBb)}
+          />
+        )}
         {d.betPct !== undefined && <Tile label="Your size" value={`${pct(d.betPct)} pot`} />}
         {d.breakevenFold !== undefined && d.street !== "preflop" && <Tile label="Bluff break-even" value={pct(d.breakevenFold)} hint="Folds needed for a pure bluff" />}
         {d.spr !== null && <Tile label="SPR" value={num(d.spr)} hint="Effective stack to pot" />}
@@ -513,11 +543,11 @@ function DecisionPanel({
       {facing && (d.exact || d.street !== "preflop") && (
         <div className="mt-4" aria-hidden>
           <div className="relative h-3 rounded-full bg-panel-2">
-            <div className={`equity-fill absolute inset-y-0 left-0 rounded-full ${!d.exact ? "bg-sky-400" : d.equity! >= d.potOdds! ? "bg-emerald-400" : "bg-rose-400"}`} style={{ width: `${d.equity! * 100}%` }} />
+            <div className={`equity-fill absolute inset-y-0 left-0 rounded-full ${!d.exact ? "bg-sky-400" : d.equity! >= d.potOdds! ? "bg-emerald-400" : "bg-rose-400"}`} style={{ width: `${barEquity! * 100}%` }} />
             <div className="absolute -inset-y-1 w-0.5 bg-amber-200" style={{ left: `${d.potOdds! * 100}%` }} />
           </div>
           <div className="mt-1 flex justify-between text-[11px] text-muted">
-            <span>Bar: your equity</span>
+            <span>Bar: your {real ? "realised " : ""}equity</span>
             <span>Marker: equity needed to call</span>
           </div>
         </div>
