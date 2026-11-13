@@ -3,9 +3,11 @@
 import Image from "next/image";
 import Link from "next/link";
 
-export function AppShell({ children, onHome, reviewing = false, learning = false, account, links }: {
+export function AppShell({ children, onHome, reviewing = false, learning = false, account, links, back }: {
   children: React.ReactNode;
   onHome?: () => void;
+  /** Shown instead of "New hand" while reviewing, for example to return to a session report. */
+  back?: { label: string; onClick: () => void };
   learning?: boolean;
   reviewing?: boolean;
   account?: React.ReactNode;
@@ -30,12 +32,15 @@ export function AppShell({ children, onHome, reviewing = false, learning = false
             <Link href="/solver" className="rounded-lg px-1.5 py-1.5 text-sm font-medium text-accent hover:bg-panel-2 sm:px-2">Solver</Link>
             <Link href="/train" className="rounded-lg px-1.5 py-1.5 text-sm font-medium text-accent hover:bg-panel-2 sm:px-2">Train</Link>
             <Link href="/pushfold" className="rounded-lg px-1.5 py-1.5 text-sm font-medium text-accent hover:bg-panel-2 sm:px-2">Push/fold</Link>
+            <Link href="/session" className="rounded-lg px-1.5 py-1.5 text-sm font-medium text-accent hover:bg-panel-2 sm:px-2">Session</Link>
             {learning ? (
               <Link href="/" className="rounded-lg border border-line px-2.5 py-1.5 text-sm hover:bg-panel-2">Review hands</Link>
             ) : (
               <Link href="/learn" className="rounded-lg px-1.5 py-1.5 text-sm font-medium text-accent hover:bg-panel-2 sm:px-2">Learn</Link>
             )}
-            {reviewing && (onHome ? (
+            {reviewing && (back ? (
+              <button onClick={back.onClick} className="rounded-lg border border-line px-2.5 py-1.5 text-sm hover:bg-panel-2">{back.label}</button>
+            ) : onHome ? (
               <button onClick={onHome} className="rounded-lg border border-line px-2.5 py-1.5 text-sm hover:bg-panel-2">New hand</button>
             ) : (
               <Link href="/" className="rounded-lg border border-line px-2.5 py-1.5 text-sm hover:bg-panel-2">New hand</Link>

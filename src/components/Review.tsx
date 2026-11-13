@@ -64,7 +64,15 @@ function initialDecision(analysis: HandAnalysis, street?: SampleHand["previewStr
   return decisions.find((decision) => decision.verdict === "mistake" || decision.verdict === "inaccuracy") ?? biggest(decisions);
 }
 
-export default function Review({ initialSample }: { initialSample?: SampleHand }) {
+export default function Review({ initialSample, initialDecisionIndex, source, back }: {
+  initialSample?: SampleHand;
+  /** Decision to select first, for example the mistake a session report linked to. */
+  initialDecisionIndex?: number;
+  /** Label for the `hand_analyzed` event. Defaults to `sample:<id>`. */
+  source?: string;
+  /** Replaces "New hand" in the header, for example to return to a session report. */
+  back?: { label: string; onClick: () => void };
+}) {
   const [draft, setDraft] = useState("");
   const [handText, setHandText] = useState<string | null>(initialSample?.text ?? null);
   const [profile, setProfile] = useState<VillainProfile>("standard");
@@ -112,14 +120,16 @@ export default function Review({ initialSample }: { initialSample?: SampleHand }
 
   const analysis = result.analysis;
   const hasAnalysis = Boolean(analysis);
-  const defaultDecision = analysis && !selection ? initialDecision(analysis, initialSample?.previewStreet) : undefined;
+  const defaultDecision = analysis && !selection
+    ? (initialDecisionIndex !== undefined ? analysis.decisions[initialDecisionIndex] : undefined) ?? initialDecision(analysis, initialSample?.previewStreet)
+    : undefined;
   const selected = selection?.index ?? defaultDecision?.index ?? 0;
   const step = selection?.step ?? defaultDecision?.actionIndex ?? 0;
   useEffect(() => {
     if (!initialSample || !analysis || trackedInitialSample.current) return;
     trackedInitialSample.current = true;
-    trackAnalysis(analysis, `sample:${initialSample.id}`);
-  }, [initialSample, analysis]);
+    trackAnalysis(analysis, source ?? `sample:${initialSample.id}`);
+  }, [initialSample, analysis, source]);
   useEffect(() => {
     if (hasAnalysis) workspaceTitle.current?.focus();
   }, [hasAnalysis]);
@@ -271,6 +281,7 @@ export default function Review({ initialSample }: { initialSample?: SampleHand }
     <AppShell
       onHome={initialSample ? undefined : goHome}
       reviewing
+      back={back}
       account={account}
       links={[
         { href: "#replay", label: "Replay" },
