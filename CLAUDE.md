@@ -57,5 +57,5 @@ One roadmap item per chat, one pull request per item.
 - [x] **Integrity lab.** For one player's set of hands, plot the distribution of EV lost per decision against a human baseline. Play that is too close to solver output suggests real-time assistance; overly uniform sizing suggests a bot. Label it a prototype on synthetic data.
 - [ ] **Feedback from real players.** Put the app in front of five players, record what they said and what changed because of it.
 - [x] **More hand-history formats.** `src/lib/poker/parser.ts` only reads the PokerStars format.
-- [ ] **Engine depth.** Mixed-frequency and stack-depth-aware preflop charts, EV of raising (today only call versus fold), equity realisation instead of raw equity.
+- [x] **Engine depth.** Mixed-frequency and stack-depth-aware preflop charts, EV of raising (today only call versus fold), equity realisation instead of raw equity.
 - [ ] **Production story.** Deployment, error monitoring, and a changelog that shows iteration after launch.

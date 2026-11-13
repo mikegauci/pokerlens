@@ -33,8 +33,10 @@ export function buildFacts(a: HandAnalysis, profile: VillainProfile): string {
       d.toCall ? `to call ${inBb(d.toCall)}` : "not facing a bet",
       `equity vs assumed range ${pct(d.equity)}`,
     ];
+    if (d.realization && d.realization.factor < 1) parts.push(`realised equity ${pct(d.realization.equity)} (realisation factor ${d.realization.factor}, a rule of thumb)`);
     if (d.potOdds !== undefined && d.toCall) parts.push(`equity needed ${pct(d.potOdds)}`);
     if (d.evCall !== undefined && d.toCall) parts.push(`EV of calling vs folding ${d.evCall >= 0 ? "+" : ""}${inBb(d.evCall)}`);
+    if (d.realization?.evCall !== undefined && d.realization.factor < 1 && d.toCall) parts.push(`EV of calling with realised equity ${d.realization.evCall >= 0 ? "+" : ""}${inBb(d.realization.evCall)}`);
     if (d.betPct !== undefined) parts.push(`size ${pct(d.betPct)} of pot`);
     if (d.breakevenFold !== undefined) parts.push(`pure bluff break-even fold frequency ${pct(d.breakevenFold)}`);
     if (d.spr !== null) parts.push(`SPR ${d.spr.toFixed(1)}`);
@@ -44,7 +46,17 @@ export function buildFacts(a: HandAnalysis, profile: VillainProfile): string {
     for (const v of d.villains) lines.push(`   Opponent ${v.name} (${v.position}) range: ${v.rangeLabel}${v.custom ? " set by the user" : ""}, starting from [${v.rangeText}], about ${v.combos} weighted combos left.`);
     lines.push(`   Engine verdict: ${d.verdict.toUpperCase()}: ${d.title}.${d.evLossBb ? ` Estimated EV lost: ${d.evLossBb.toFixed(1)}bb.` : ""}`);
     if (d.model) lines.push(`   Model used: ${d.model.name}${d.model.exact ? " (exact for that game)" : " (approximation)"}. ${d.model.note}`);
-    if (d.chart) lines.push(`   Preflop chart (${d.chart.situation}) recommends: ${d.chart.recommended}.`);
+    if (d.chart) {
+      const f = d.chart.freq;
+      lines.push(`   Preflop chart (${d.chart.depthLabel}, ${d.chart.situation}) recommends: ${d.chart.recommended}; for this hand it raises ${pct(f.raise)}, calls ${pct(f.call)}, folds ${pct(f.fold)}.`);
+    }
+    if (d.aggression) {
+      const g = d.aggression;
+      const what = g.actual ? `hero's ${g.kind} of ${inBb(g.added)}` : g.kind === "raise" ? `raising to ${inBb(g.to!)} instead` : `betting ${inBb(g.added)} instead`;
+      lines.push(
+        `   EV of ${what}: ${g.gain >= 0 ? "+" : ""}${inBb(g.gain)} compared with ${g.passive === "check" ? "checking" : g.passive === "call" ? "calling" : "folding"} (one-street model: opponent folds ${pct(g.foldPct)} and calls with its strongest ${pct(1 - g.foldPct)}, hero's equity when called ${pct(g.equityWhenCalled)}, no re-raises${d.street === "river" ? "" : ", later streets ignored"}).`,
+      );
+    }
   });
   return lines.join("\n");
 }
@@ -54,7 +66,9 @@ export const COACH_INSTRUCTIONS = `You are a poker coach reviewing one No-Limit 
 You are given a fact sheet produced by a deterministic analysis engine. Rules:
 - Use only the numbers in the fact sheet. Never calculate or estimate new equities, EVs or frequencies yourself. If the player asks for a number that is not there, say the engine did not compute it and reason qualitatively.
 - The opponent ranges are simplified chart-based estimates narrowed by a heuristic, not solver output. Say so when a verdict is close or depends heavily on the range, and tell the player which read about the opponent would change the answer.
-- Equity is raw showdown equity. On earlier streets, mention implied odds, reverse implied odds or position when they matter.
+- Equity is raw showdown equity. With cards to come, calls and folds are judged on realised equity: raw equity times a realisation factor for position, which is a rule of thumb, not solved. On earlier streets, mention implied odds, reverse implied odds or position when they matter.
+- A preflop chart can mix: when it plays a hand more than one way, any action it takes often enough is fine.
+- An "EV of betting/raising" line comes from a one-street model with the stated assumptions. Quote it with those assumptions.
 - When the fact sheet says "Model used" for a decision, that range or verdict comes from a push/fold equilibrium solved by the engine. You may call it an equilibrium of that model, and you must mention its stated limits.
 - Otherwise do not call anything "GTO" or "solver-approved". Distinguish between the theoretical baseline and exploitative adjustments against this opponent type.
 - Agree with the engine verdicts unless the fact sheet itself gives a reason to doubt one; if you do doubt one, say why.

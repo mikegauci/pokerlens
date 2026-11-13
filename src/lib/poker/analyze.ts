@@ -1,26 +1,24 @@
 import { Card, handClass, hashString, mulberry32 } from "./cards";
 import {
-  BB_DEFEND_TEXT,
-  CALL_FOUR_BET_TEXT,
-  CALL_OPEN_TEXT,
-  CALL_THREE_BET_TEXT,
-  FIVE_BET_TEXT,
-  FOUR_BET_TEXT,
+  CHARTS,
+  DEPTH_LABELS,
+  DepthBand,
   LIMP_TEXT,
-  RFI_TEXT,
-  THREE_BET_TEXT,
-  chart,
   chartPos,
+  depthBand,
   facingOpenCharts,
   facingThreeBetCharts,
   firstInCharts,
+  frequencies,
   openerGroup,
 } from "./charts";
 import { equityVsRanges } from "./equity";
 import { describeHand } from "./evaluator";
 import { Action, POSTFLOP_ORDER, ParsedHand, Street } from "./parser";
 import { PUSH_FOLD_MAX_BB, ShoveGame, equityVsRange, formatRange, solveShoveGame } from "./pushfold";
+import { AggressionOption, aggressionEv, standardSize } from "./raise-ev";
 import { Combo, Range, classWeights, expandRange, narrowRange, parseRange, removeDead, totalWeight } from "./ranges";
+import { Realization, realization } from "./realization";
 
 export type Verdict = "good" | "ok" | "inaccuracy" | "mistake";
 
@@ -34,6 +32,10 @@ export const MARGINS = {
   enumerated: 0.005,
   valueBet: 0.6,
   bluff: 0.35,
+  /** A hand the chart plays this way at least this often is a normal part of a mixed strategy. */
+  mixed: 0.25,
+  /** Big blinds a river bet must gain or lose against checking before the EV of betting decides the verdict. */
+  betEv: 0.25,
   /** Big blinds of EV within which a push/fold shove or fold counts as close. */
   shoveClose: 0.05,
   /** A push/fold error at least this many big blinds is a mistake; smaller ones are inaccuracies. */
@@ -69,6 +71,11 @@ export interface ChartAdvice {
   inCall: boolean;
   raiseText: string;
   callText: string;
+  /** How often the chart raises, calls and folds hero's hand. Between 0 and 1 for a mixed hand. */
+  freq: { raise: number; call: number; fold: number };
+  /** Which chart set was used, chosen by hero's effective stack at the start of the hand. */
+  depth: DepthBand;
+  depthLabel: string;
 }
 
 export interface Decision {
@@ -95,6 +102,13 @@ export interface Decision {
   breakevenFold?: number;
   /** True when no further betting is possible, so equity versus pot odds is exact for the assumed range. */
   exact: boolean;
+  /**
+   * Equity realisation when more betting can follow: the factor, the equity it leaves, and the EV of calling
+   * with that equity. Calls and folds with cards to come are judged on these, not on raw equity.
+   */
+  realization?: Realization & { equity: number; evCall?: number };
+  /** EV of betting or raising (hero's size, or a standard one) against one opponent, compared with the best passive option. */
+  aggression?: AggressionOption;
   chart?: ChartAdvice;
   /** Set when a push/fold solution judged this decision or supplied the range hero is up against. */
   model?: ModelNote;
@@ -259,6 +273,12 @@ export function analyzeHand(hand: ParsedHand, opts: AnalysisOptions = {}): HandA
   const decisions: Decision[] = [];
   const timeline: Snapshot[] = [];
 
+  /** Chart set for each player, from its effective stack at the start of the hand (against the deepest other stack). */
+  const bandOf: Record<string, DepthBand> = Object.fromEntries(
+    hand.players.map((p) => [p.name, depthBand(Math.min(p.stack, Math.max(...hand.players.filter((o) => o !== p).map((o) => o.stack))) / bb)]),
+  );
+  const chartsOf = (name: string) => CHARTS[bandOf[name]];
+
   const setVillainRange = (name: string, label: string, text: string) => {
     const override = overrides[name]?.trim();
     const useText = override || text;
@@ -280,28 +300,30 @@ export function analyzeHand(hand: ParsedHand, opts: AnalysisOptions = {}): HandA
       const spot =
         raises === 0
           ? firstInShove(a.player, potBefore, postedBefore)
-          : reshove(a.player, firstRaiser === hero ? RFI_TEXT[chartPos(heroPlayer.position)] : (villains[firstRaiser ?? ""]?.text ?? ""), potBefore, postedBefore);
+          : reshove(a.player, firstRaiser === hero ? chartsOf(hero).rfi[chartPos(heroPlayer.position)] : (villains[firstRaiser ?? ""]?.text ?? ""), potBefore, postedBefore);
       if (spot) {
         setVillainRange(a.player, spot.model.name, formatRange(solveShoveGame(spot.game).shove));
         shoveModel = villains[a.player].custom ? null : { player: a.player, model: spot.model };
         return;
       }
     }
+    const c = chartsOf(a.player);
+    const depth = bandOf[a.player] === "deep" ? "" : `, ${DEPTH_LABELS[bandOf[a.player]]}`;
     if (a.type === "raise" || a.type === "bet") {
-      if (raises === 0) setVillainRange(a.player, `${pos} open-raise`, RFI_TEXT[chartPos(pos)]);
+      if (raises === 0) setVillainRange(a.player, `${pos} open-raise${depth}`, c.rfi[chartPos(pos)]);
       else if (raises === 1) {
         const g = openerGroup(posOf[firstRaiser ?? a.player]);
-        setVillainRange(a.player, `3-bet vs ${g} position open`, THREE_BET_TEXT[g]);
-      } else if (raises === 2) setVillainRange(a.player, "4-bet", FOUR_BET_TEXT);
-      else setVillainRange(a.player, "5-bet or more", FIVE_BET_TEXT);
+        setVillainRange(a.player, `3-bet vs ${g} position open${depth}`, c.threeBet[g]);
+      } else if (raises === 2) setVillainRange(a.player, `4-bet${depth}`, c.fourBet);
+      else setVillainRange(a.player, `5-bet or more${depth}`, c.fiveBet);
     } else if (a.type === "call") {
       if (raises === 0) setVillainRange(a.player, "Limp", LIMP_TEXT);
       else if (raises === 1) {
         const g = openerGroup(posOf[firstRaiser ?? a.player]);
-        if (pos === "BB") setVillainRange(a.player, `BB defend vs ${g} position open`, BB_DEFEND_TEXT[g]);
-        else setVillainRange(a.player, `Call vs ${g} position open`, CALL_OPEN_TEXT[g]);
-      } else if (raises === 2) setVillainRange(a.player, "Call vs 3-bet", CALL_THREE_BET_TEXT);
-      else setVillainRange(a.player, "Call vs 4-bet", CALL_FOUR_BET_TEXT);
+        if (pos === "BB") setVillainRange(a.player, `BB defend vs ${g} position open${depth}`, c.bbDefend[g]);
+        else setVillainRange(a.player, `Call vs ${g} position open${depth}`, c.callOpen[g]);
+      } else if (raises === 2) setVillainRange(a.player, `Call vs 3-bet${depth}`, c.callThreeBet);
+      else setVillainRange(a.player, `Call vs 4-bet${depth}`, c.callFourBet);
     } else if (a.type === "check") {
       setVillainRange(a.player, "BB checked its option", "random");
     }
@@ -309,43 +331,45 @@ export function analyzeHand(hand: ParsedHand, opts: AnalysisOptions = {}): HandA
 
   const preflopAdvice = (toCall: number): ChartAdvice => {
     const pos = heroPlayer.position;
+    const band = bandOf[hero];
+    const c = CHARTS[band];
     let situation: string;
     let raiseText: string;
     let callText = "";
     if (raises === 0) {
       if (toCall === 0) {
         situation = "Big blind option after limps";
-        raiseText = RFI_TEXT.CO;
+        raiseText = c.rfi.CO;
       } else if (limpers > 0) {
         situation = `${pos} over ${limpers} limper${limpers > 1 ? "s" : ""}`;
-        raiseText = RFI_TEXT[chartPos(pos)];
+        raiseText = c.rfi[chartPos(pos)];
         callText = OVERLIMP;
       } else {
         situation = `${pos} first in (open-raise or fold)`;
-        ({ raiseText, callText } = firstInCharts(pos));
+        ({ raiseText, callText } = firstInCharts(pos, band));
       }
     } else if (raises === 1) {
       const opener = posOf[firstRaiser!];
       situation = `${pos} facing a ${opener} open`;
-      ({ raiseText, callText } = facingOpenCharts(pos, opener));
+      ({ raiseText, callText } = facingOpenCharts(pos, opener, band));
     } else if (raises === 2) {
       if (heroRole === "open") {
         situation = `${pos} opened and faces a 3-bet`;
-        ({ raiseText, callText } = facingThreeBetCharts());
+        ({ raiseText, callText } = facingThreeBetCharts(band));
       } else {
         situation = `${pos} cold, facing an open and a 3-bet`;
-        raiseText = FIVE_BET_TEXT;
+        raiseText = c.fiveBet;
         callText = "QQ, AKo";
       }
     } else {
       situation = `${pos} facing a 4-bet or more`;
-      raiseText = FIVE_BET_TEXT;
-      callText = CALL_FOUR_BET_TEXT;
+      raiseText = c.fiveBet;
+      callText = c.callFourBet;
     }
-    const inRaise = (chart(raiseText).get(heroClass) ?? 0) > 0;
-    const inCall = callText ? (chart(callText).get(heroClass) ?? 0) > 0 : false;
-    const recommended = inRaise ? "raise" : inCall ? "call" : toCall > 0 ? "fold" : "check";
-    return { situation, recommended, inRaise, inCall, raiseText, callText };
+    const freq = frequencies({ raiseText, callText }, heroClass);
+    // The most frequent action; ties go to the more aggressive one.
+    const recommended = freq.raise > 0 && freq.raise >= Math.max(freq.call, freq.fold) ? "raise" : freq.call > 0 && freq.call >= freq.fold ? "call" : toCall > 0 ? "fold" : "check";
+    return { situation, recommended, inRaise: freq.raise > 0, inCall: freq.call > 0, raiseText, callText, freq, depth: band, depthLabel: DEPTH_LABELS[band] };
   };
 
   const activeVillains = () => hand.players.filter((p) => !p.isHero && !folded.has(p.name) && villains[p.name]);
@@ -359,10 +383,10 @@ export function analyzeHand(hand: ParsedHand, opts: AnalysisOptions = {}): HandA
     const added = a.type === "raise" ? (a.to ?? 0) - committed[hero] : a.amount;
 
     let inPosition: boolean | null = null;
-    if (street !== "preflop" && liveOpponents.length) {
-      const heroIdx = POSTFLOP_ORDER.indexOf(heroPlayer.position);
-      inPosition = liveOpponents.every((p) => POSTFLOP_ORDER.indexOf(p.position) < heroIdx);
-    }
+    const heroIdx = POSTFLOP_ORDER.indexOf(heroPlayer.position);
+    /** Whether hero acts last after the flop against the players still in. Preflop it only feeds equity realisation. */
+    const actsLast = liveOpponents.length > 0 && liveOpponents.every((p) => POSTFLOP_ORDER.indexOf(p.position) < heroIdx);
+    if (street !== "preflop" && liveOpponents.length) inPosition = actsLast;
 
     const views: VillainView[] = opponents.map((p) => {
       const v = villains[p.name];
@@ -415,6 +439,32 @@ export function analyzeHand(hand: ParsedHand, opts: AnalysisOptions = {}): HandA
       d.potOdds = toCall / (pot + toCall);
       if (d.equity !== undefined) d.evCall = d.equity * (pot + toCall) - toCall;
     }
+    // Realisation only matters for a price decision: calling or folding with cards and betting still to come.
+    if (d.equity !== undefined && toCall > 0 && (a.type === "call" || a.type === "fold") && !d.exact && street !== "river") {
+      const r = realization({ street, inPosition: actsLast, heroCards: hand.heroCards, exact: d.exact });
+      const equity = Math.min(1, d.equity * r.factor);
+      d.realization = { ...r, equity, evCall: equity * (pot + toCall) - toCall };
+    }
+
+    // EV of betting or raising, heads-up after the flop, when the opponent still has chips to call with.
+    const villain = opponents.length === 1 && liveOpponents.length === 1 ? opponents[0].name : null;
+    if (street !== "preflop" && villain && d.equity !== undefined && stacks[villain] > 0 && stacks[hero] > toCall) {
+      const spot = { pot, toCall, heroCommitted: committed[hero], villainCommitted: committed[villain], heroStack: stacks[hero] };
+      const aggressive = a.type === "bet" || a.type === "raise";
+      const option = aggressionEv({
+        ...spot,
+        heroCards: hand.heroCards,
+        board,
+        villain: villains[villain].combos,
+        villainStack: stacks[villain],
+        equity: d.equity,
+        added: aggressive ? added : standardSize(spot),
+        actual: aggressive,
+        iterations: Math.round(iterations / 2),
+        rng: mulberry32(hashString(`${hand.id}:${actionIndex}:aggression`)),
+      });
+      if (option) d.aggression = option;
+    }
     if (a.type === "bet" || a.type === "raise") {
       d.betPct = pot > 0 ? added / pot : undefined;
       d.breakevenFold = added / (added + pot);
@@ -426,10 +476,14 @@ export function analyzeHand(hand: ParsedHand, opts: AnalysisOptions = {}): HandA
   };
 
   const judgeByPotOdds = (d: Decision, margin: number) => {
-    const eq = d.equity!;
+    // With cards to come, judge on the equity the hand is expected to realise, not raw equity.
+    const r = !d.exact && d.realization && d.realization.factor < 1 ? d.realization : null;
+    const eq = r ? r.equity : d.equity!;
     const need = d.potOdds!;
-    const ev = d.evCall!;
-    const facts = `You needed ${pct(need)} equity to call ${inBb(d.toCall)} into ${inBb(d.pot)} and had about ${pct(eq)} against the assumed range.`;
+    const ev = r ? r.evCall! : d.evCall!;
+    const facts = r
+      ? `You needed ${pct(need)} equity to call ${inBb(d.toCall)} into ${inBb(d.pot)}. You had about ${pct(d.equity!)} raw equity against the assumed range, which out of position realises about ${pct(eq)} (factor ${r.factor}).`
+      : `You needed ${pct(need)} equity to call ${inBb(d.toCall)} into ${inBb(d.pot)} and had about ${pct(eq)} against the assumed range.`;
     if (d.action.type === "fold") {
       if (eq > need + margin) {
         d.verdict = "mistake";
@@ -541,8 +595,20 @@ export function analyzeHand(hand: ParsedHand, opts: AnalysisOptions = {}): HandA
     d.chart = advice;
     const rec = advice.recommended;
 
-    const chartLine = `Chart for "${advice.situation}": raise ${advice.raiseText}${advice.callText ? `; call ${advice.callText}` : ""}.`;
-    if (act === "check") {
+    const f = advice.freq;
+    const mix = [f.raise > 0 && `raise ${pct(f.raise)}`, f.call > 0 && `call ${pct(f.call)}`, f.fold > 0 && (d.toCall > 0 ? `fold ${pct(f.fold)}` : `check ${pct(f.fold)}`)].filter(Boolean).join(", ");
+    const chartLine = `${advice.depthLabel} for "${advice.situation}": raise ${advice.raiseText}${advice.callText ? `; call ${advice.callText}` : ""}. With ${heroClass} it plays ${mix}.`;
+    const freqOf = act === "raise" ? f.raise : act === "call" ? f.call : act === "fold" ? f.fold : 0;
+    const isMixed = Math.max(f.raise, f.call, f.fold) < 1;
+    if (act !== "check" && act !== rec && isMixed && freqOf >= MARGINS.mixed) {
+      d.verdict = "good";
+      d.title = "Part of a mixed strategy";
+      d.reasons.push(`The chart plays ${heroClass} more than one way here (${mix}), so ${act === "raise" ? "raising" : act === "call" ? "calling" : "folding"} is a normal choice as long as it is not every time.`);
+    } else if (act !== "check" && act !== rec && freqOf > 0 && freqOf < MARGINS.mixed) {
+      d.verdict = "ok";
+      d.title = "Rare part of a mix";
+      d.reasons.push(`The chart ${act === "raise" ? "raises" : act === "call" ? "calls" : "folds"} ${heroClass} only ${pct(freqOf)} of the time here (${mix}). Fine now and then, a leak if it is your habit.`);
+    } else if (act === "check") {
       d.verdict = "good";
       d.title = rec === "raise" ? "Checked a hand that can raise" : "Free play";
       if (rec === "raise") {
@@ -615,7 +681,12 @@ export function analyzeHand(hand: ParsedHand, opts: AnalysisOptions = {}): HandA
       );
     }
     if (d.equity !== undefined && d.potOdds !== undefined) {
-      d.reasons.push(`For reference: about ${pct(d.equity)} raw equity against the assumed range, with ${pct(d.potOdds)} needed on price alone. Preflop, position and playability matter as much as raw equity.`);
+      const r = d.realization;
+      d.reasons.push(
+        r && r.factor < 1
+          ? `For reference: about ${pct(d.equity)} raw equity against the assumed range, with ${pct(d.potOdds)} needed on price alone. ${r.note} At a factor of ${r.factor} that plays like about ${pct(r.equity)}.`
+          : `For reference: about ${pct(d.equity)} raw equity against the assumed range, with ${pct(d.potOdds)} needed on price alone. Preflop, position and playability matter as much as raw equity.`,
+      );
     }
   };
 
@@ -630,9 +701,19 @@ export function analyzeHand(hand: ParsedHand, opts: AnalysisOptions = {}): HandA
     }
     const river = d.street === "river";
 
+    const g = d.aggression;
+    /** One sentence on the EV of the bet or raise, with the model's limits on earlier streets. */
+    const aggressionLine = (o: AggressionOption) => {
+      const what = o.actual ? `Your ${o.kind}` : o.kind === "raise" ? `Raising to ${inBb(o.to!)}` : `Betting ${inBb(o.added)}`;
+      const vs = o.passive === "check" ? "checking" : o.passive === "call" ? "calling" : "folding";
+      const caveat = river ? "" : " Later streets are ignored, so treat it as a rough guide.";
+      return `${what} is worth ${signedBb((o.gain) / bb)} compared with ${vs}, if the opponent folds ${pct(o.foldPct)} of its range and calls with the strongest ${pct(1 - o.foldPct)}, against which you have ${pct(o.equityWhenCalled)}. That assumes it defends exactly the minimum and never re-raises.${caveat}`;
+    };
+
     if (d.toCall > 0 && (act === "fold" || act === "call")) {
       judgeByPotOdds(d, d.exact ? MARGINS.exact : MARGINS.close);
       if (d.exact) d.reasons.push("No more betting can follow, so the comparison of equity and pot odds is exact for the assumed range.");
+      if (g && g.gain > 0) d.reasons.push(aggressionLine(g));
       return;
     }
 
@@ -655,11 +736,17 @@ export function analyzeHand(hand: ParsedHand, opts: AnalysisOptions = {}): HandA
         if (act === "bet" && d.betPct !== undefined && d.betPct < 0.3 && eq > 0.75 && river) {
           d.reasons.push("With this much equity on the river, a larger size would usually win more.");
         }
+        if (g) d.reasons.push(aggressionLine(g));
       } else if (eq <= MARGINS.bluff) {
         d.verdict = "ok";
         d.title = act === "bet" ? "Bluff" : "Bluff raise";
         d.reasons.push(have, `As a bluff, this ${verb} of ${size} needs folds more than ${pct(fe)} of the time to break even before counting your equity when called.`);
         if (river) d.reasons.push("On the river you have no more cards to come, so the bluff depends entirely on fold equity.");
+      } else if (river && g && g.gain >= MARGINS.betEv * bb) {
+        // On the river the EV of betting is settled by the model, so a medium hand that gains from betting is a thin value bet.
+        d.verdict = "good";
+        d.title = act === "bet" ? "Thin value bet" : "Thin value raise";
+        d.reasons.push(have, aggressionLine(g));
       } else {
         d.verdict = river || act === "raise" ? "inaccuracy" : "ok";
         d.title = act === "raise" ? "Raised a medium-strength hand" : river ? "Thin river bet" : "Thin bet";
@@ -669,15 +756,24 @@ export function analyzeHand(hand: ParsedHand, opts: AnalysisOptions = {}): HandA
             ? "Hands in the middle tend to fold out worse and get called by better when they put more money in. Checking or calling keeps the pot the right size."
             : "This is a thin bet. It can protect your equity and charge draws, but be ready for a raise.",
         );
+        if (g) {
+          d.reasons.push(aggressionLine(g));
+          if (river && g.gain <= -MARGINS.betEv * bb) d.evLossBb = -g.gain / bb;
+        }
       }
       return;
     }
 
     if (act === "check") {
-      if (river && eq >= 0.75 && d.inPosition) {
+      const betWins = river && g !== undefined && g.gain >= MARGINS.betEv * bb;
+      if (river && d.inPosition && (eq >= 0.75 || betWins)) {
         d.verdict = "inaccuracy";
         d.title = "Missed river value";
         d.reasons.push(have, "Checking back closes the action, so a hand this strong gives up a bet that worse hands would call.");
+        if (g) {
+          d.reasons.push(aggressionLine(g));
+          if (betWins) d.evLossBb = g.gain / bb;
+        }
       } else if (eq >= 0.8) {
         d.verdict = "ok";
         d.title = "Slow-play";
@@ -687,6 +783,7 @@ export function analyzeHand(hand: ParsedHand, opts: AnalysisOptions = {}): HandA
         d.title = "Reasonable check";
         d.reasons.push(have);
       }
+      if (g && g.gain > 0 && d.title !== "Missed river value") d.reasons.push(aggressionLine(g));
       return;
     }
 
