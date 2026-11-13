@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { RELEASE } from "@/lib/release";
 
 export function AppShell({ children, onHome, reviewing = false, learning = false, account, links, back }: {
   children: React.ReactNode;
@@ -51,6 +52,13 @@ export function AppShell({ children, onHome, reviewing = false, learning = false
         </div>
       </header>
       <main id="main" tabIndex={-1} className="jump-target">{children}</main>
+      <footer className="border-t border-line">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-4 text-xs text-muted sm:px-6">
+          <span>Release <code className="font-mono">{RELEASE}</code></span>
+          <Link href="/changelog" className="hover:text-ink">Changelog</Link>
+          <Link href="/demo" className="hover:text-ink">Demo hands</Link>
+        </div>
+      </footer>
     </div>
   );
 }

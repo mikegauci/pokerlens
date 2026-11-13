@@ -2,7 +2,8 @@ import type { EventName } from "./event-names";
 import { supabase } from "./supabase";
 
 let sessionId: string | null = null;
-function session(): string {
+/** Anonymous id for this browser tab's visit, shared by events and error reports. */
+export function session(): string {
   if (sessionId) return sessionId;
   try {
     sessionId = sessionStorage.getItem("hl_session");

@@ -6,7 +6,9 @@ import { Suspense } from "react";
 import { AppShell } from "@/components/AppShell";
 import { formatRate, parseWindow, summarize, windowStart, WINDOWS, type MetricsSummary, type WindowId } from "@/lib/metrics";
 import { isAuthorized } from "@/lib/metrics-auth";
-import { MAX_ROWS, readEvents } from "@/lib/metrics-data";
+import { groupErrors, type ErrorGroup } from "@/lib/errors";
+import { MAX_ERROR_ROWS, MAX_ROWS, readErrors, readEvents } from "@/lib/metrics-data";
+import { DEPLOY_ENV, RELEASE } from "@/lib/release";
 
 export const metadata: Metadata = {
   title: "Usage Metrics | PokerLens",
@@ -17,6 +19,7 @@ export const metadata: Metadata = {
 const sections = [
   { href: "#funnel", label: "Funnel" },
   { href: "#events", label: "All events" },
+  { href: "#errors", label: "Errors" },
   { href: "#about-metrics", label: "How it is counted" },
 ];
 
@@ -56,7 +59,7 @@ async function MetricsContent({ searchParams }: { searchParams: PageProps<"/metr
   const windowId = parseWindow((await searchParams).window);
   const to = new Date();
   const from = windowStart(windowId, to);
-  const result = await readEvents(from);
+  const [result, errors] = await Promise.all([readEvents(from), readErrors(from)]);
 
   if (!result.ok) {
     return (
@@ -87,7 +90,44 @@ async function MetricsContent({ searchParams }: { searchParams: PageProps<"/metr
       )}
       <Funnel summary={summary} />
       <EventTable summary={summary} />
+      <Errors result={errors} />
     </>
+  );
+}
+
+function Errors({ result }: { result: Awaited<ReturnType<typeof readErrors>> }) {
+  const groups: ErrorGroup[] = result.ok ? groupErrors(result.rows) : [];
+  const total = result.ok ? result.rows.length : 0;
+  const time = (iso: string) => new Date(iso).toUTCString().replace(" GMT", "");
+  return (
+    <section id="errors" tabIndex={-1} aria-labelledby="errors-title" className="jump-target mt-6 rounded-xl border border-line bg-panel p-4 sm:p-6">
+      <h2 id="errors-title" className="text-lg font-semibold">Errors</h2>
+      <p className="mt-1 text-sm text-muted">
+        Uncaught errors from browsers and the server, grouped by fingerprint (message without numbers, plus the first stack frame). This deploy is release <code className="font-mono text-ink">{RELEASE}</code> ({DEPLOY_ENV}).
+      </p>
+      {!result.ok ? (
+        <p className="mt-3 text-sm text-muted">{result.reason === "missing-config" ? "Errors are read with the same server key as events, which is not set." : `Could not read errors: ${result.message}`}</p>
+      ) : groups.length === 0 ? (
+        <p className="mt-3 text-sm text-muted">No errors recorded in this window.</p>
+      ) : (
+        <>
+          <p className="mt-3 text-sm text-muted">{total.toLocaleString("en-GB")} reports in {groups.length.toLocaleString("en-GB")} groups.{result.truncated && ` Only the latest ${MAX_ERROR_ROWS.toLocaleString("en-GB")} were read.`}</p>
+          <ul className="mt-3 divide-y divide-line">
+            {groups.map((g) => (
+              <li key={g.fingerprint} className="py-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                  <span className="min-w-0 break-words font-medium">{g.message}</span>
+                  <span className="text-sm tabular-nums"><strong className="text-ink">{g.count.toLocaleString("en-GB")}</strong><span className="text-muted"> × · {g.source === "client" ? `${g.sessions} sessions` : "server"}</span></span>
+                </div>
+                <p className="mt-1 text-xs text-muted">
+                  {g.kind} · {g.paths.join(", ") || "no path"} · release {g.releases.join(", ")} · last {time(g.lastSeen)} · first {time(g.firstSeen)} · <code className="font-mono">{g.fingerprint}</code>
+                </p>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
   );
 }
 
