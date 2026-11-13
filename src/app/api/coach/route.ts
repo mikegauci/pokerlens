@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { analyzeHand, VillainProfile } from "@/lib/poker/analyze";
 import { HandParseError, parseHand } from "@/lib/poker/parser";
-import { COACH_INSTRUCTIONS, buildFacts, fallbackExplanation } from "@/lib/coach";
+import { buildFacts, coachRequest, fallbackExplanation } from "@/lib/coach";
 
 export const maxDuration = 60;
 
@@ -41,13 +41,7 @@ export async function POST(request: Request) {
   const client = new OpenAI();
   const facts = buildFacts(analysis, profile);
   try {
-    const stream = await client.responses.create({
-      model: process.env.OPENAI_MODEL || "gpt-5.5",
-      instructions: COACH_INSTRUCTIONS,
-      input: [{ role: "user", content: `Fact sheet for the hand:\n\n${facts}\n\nReview this hand.` }, ...messages],
-      max_output_tokens: 900,
-      stream: true,
-    });
+    const stream = await client.responses.create({ ...coachRequest(facts, messages), stream: true });
     const encoder = new TextEncoder();
     const out = new ReadableStream({
       async start(controller) {
