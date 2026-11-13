@@ -25,7 +25,7 @@ export default function ChangelogPage() {
             <h2 id={`h-${day}`} className="text-sm font-semibold uppercase tracking-wider text-muted">{formatDate(day)}</h2>
             <ol className="mt-3 space-y-4">
               {CHANGELOG.filter((e) => e.date === day).map((e) => (
-                <li key={e.title} className="rounded-xl border border-line bg-panel p-4 sm:p-5">
+                <li key={e.title} data-tour={e === CHANGELOG[0] ? "changelog" : undefined} className="rounded-xl border border-line bg-panel p-4 sm:p-5">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                     <h3 className="text-lg font-semibold">{e.href ? <Link href={e.href} className="hover:text-accent">{e.title}</Link> : e.title}</h3>
                     {e.pr && <a href={`${REPO_URL}/pull/${e.pr}`} className="text-sm text-accent hover:underline">PR {e.pr}</a>}

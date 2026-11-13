@@ -54,7 +54,7 @@ export default function LearnPage() {
   return (
     <AppShell learning links={sections}>
       <div className="mx-auto max-w-7xl px-4 pb-14 pt-6 sm:px-6 sm:pt-9">
-        <section className="review-hero panel-enter grid items-center gap-6 rounded-2xl border border-line p-5 sm:p-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.75fr)]">
+        <section data-tour="learn" className="review-hero panel-enter grid items-center gap-6 rounded-2xl border border-line p-5 sm:p-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.75fr)]">
           <div>
             <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Learn poker with PokerLens</h1>
             <p className="mt-3 max-w-lg leading-relaxed text-muted">

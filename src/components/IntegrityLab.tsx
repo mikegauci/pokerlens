@@ -68,7 +68,7 @@ export function IntegrityLab({ players, baseline, lossLabels, sizeLabels, minMea
         </div>
       </fieldset>
 
-      <section aria-labelledby="signals-title" className="mt-6">
+      <section aria-labelledby="signals-title" data-tour="integrity-signals" className="mt-6">
         <h2 id="signals-title" className="text-xl font-semibold">Signals for {p.label.toLowerCase()}</h2>
         <p className="mt-1 text-sm text-muted">
           {p.hands.toLocaleString("en")} hands, {p.measured} measured calls and folds, {p.bets} postflop bets. A signal is raised only when the player falls outside the range of all {baseline.players} baseline humans.
