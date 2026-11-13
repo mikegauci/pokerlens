@@ -33,6 +33,7 @@ export function AppShell({ children, onHome, reviewing = false, learning = false
             <Link href="/train" className="rounded-lg px-1.5 py-1.5 text-sm font-medium text-accent hover:bg-panel-2 sm:px-2">Train</Link>
             <Link href="/pushfold" className="rounded-lg px-1.5 py-1.5 text-sm font-medium text-accent hover:bg-panel-2 sm:px-2">Push/fold</Link>
             <Link href="/session" className="rounded-lg px-1.5 py-1.5 text-sm font-medium text-accent hover:bg-panel-2 sm:px-2">Session</Link>
+            <Link href="/integrity" className="rounded-lg px-1.5 py-1.5 text-sm font-medium text-accent hover:bg-panel-2 sm:px-2">Integrity</Link>
             {learning ? (
               <Link href="/" className="rounded-lg border border-line px-2.5 py-1.5 text-sm hover:bg-panel-2">Review hands</Link>
             ) : (
