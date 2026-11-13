@@ -10,22 +10,27 @@ Paste a No-Limit Hold'em hand history and get a street-by-street review: equity 
 - **Estimates opponent ranges** from position and preflop action using simplified 6-max charts, then reweights them after each postflop bet, call or check. Ranges are editable, and an opponent profile (rarely bluffs / standard / bluffs a lot) shifts the estimate for exploitative review.
 - **Explains** the hand with an LLM coach that only sees the computed numbers, with follow-up questions.
 
+- **Solves river spots** at `/solver`: a CFR+ solver for heads-up rivers takes two ranges, a pot, a stack and up to three bet sizes, and returns a Nash equilibrium. It shows the mixed strategy and EV of every combo, the value-to-bluff split of each bet, defence frequency against the minimum defence frequency, and how far the answer still is from equilibrium. Pick an opponent leak (bluffs too little or too much, calls or folds too much) to see the best response and what it gains.
+
 - **Accounts and saved hands** (Supabase auth, row-level security): save a reviewed hand with its assumptions, reopen it later, and see recurring leaks and total EV lost across saved hands.
 - **Usage instrumentation**: anonymous product events (`hand_analyzed`, `decision_viewed`, `range_edited`, `profile_changed`, `coach_requested`, `hand_saved`) go to a write-only `events` table. No hand text or personal data is recorded in events.
 
 ## What it is not
 
-It is not a solver. Preflop charts are binary approximations, postflop range narrowing is a documented heuristic, and equity is raw showdown equity. The UI says which verdicts are exact (river and all-in decisions, for the assumed range) and which are softer. Stack depth, ICM, rake and mixed strategies are not modelled.
+Hand review is not a solver. Preflop charts are binary approximations, postflop range narrowing is a documented heuristic, and equity is raw showdown equity. The UI says which verdicts are exact (river and all-in decisions, for the assumed range) and which are softer. Stack depth, ICM, rake and mixed strategies are not modelled.
+
+The river solver is exact only for its model: two players, the ranges and bet sizes entered, at most one pot-sized raise, no rake. Ranges are entered by hand class, so suit combinations of a hand start with equal weight. It is not yet wired into hand review, which would need an estimate of hero's own range.
 
 ## Design decisions
 
 - **The maths is deterministic code; the LLM only explains.** `/api/coach` re-runs the analysis on the server and sends the model a fact sheet. The prompt forbids it from producing its own numbers.
 - **Seeded Monte Carlo**, so the same hand always gives the same output.
+- **The solver is checked against a closed-form answer.** `tests/solver.test.ts` solves the textbook nuts-or-air game at three bet sizes and compares bluff share, calling frequency and EV with the known equilibrium, then checks properties any equilibrium must have on a real spot (EVs sum to the pot, the nuts never fold, equilibrium play never loses to a leak, the best response never does worse).
 - **Validation scenarios** in `tests/validation.test.ts`: hands where the right answer is not in dispute, plus consistency properties (wider range means more equity, more bluffs means a bluff-catcher gains equity, EV sign matches equity versus price). A change that flips one of these has made the output strategically inconsistent.
 
 ## Layout
 
-- `src/lib/poker/` engine: `cards`, `evaluator`, `ranges`, `charts`, `equity`, `parser`, `analyze`
+- `src/lib/poker/` engine: `cards`, `evaluator`, `ranges`, `charts`, `equity`, `parser`, `analyze`, `solver`, `solver-spots`
 - `src/lib/coach.ts` fact sheet and prompt
 - `src/app/api/coach/route.ts` streaming coach endpoint
 - `src/components/` UI

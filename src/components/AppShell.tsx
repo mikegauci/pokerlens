@@ -27,6 +27,7 @@ export function AppShell({ children, onHome, reviewing = false, learning = false
             {links.map((link) => <Link key={link.href} href={link.href} className="rounded-md px-2.5 py-1.5 text-xs font-medium text-muted hover:bg-panel-2 hover:text-ink sm:text-sm">{link.label}</Link>)}
           </nav>
           <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+            <Link href="/solver" className="rounded-lg px-2 py-1.5 text-sm font-medium text-accent hover:bg-panel-2">Solver</Link>
             {learning ? (
               <Link href="/" className="rounded-lg border border-line px-2.5 py-1.5 text-sm hover:bg-panel-2">Review hands</Link>
             ) : (

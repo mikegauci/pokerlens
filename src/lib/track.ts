@@ -15,7 +15,7 @@ function session(): string {
   return sessionId;
 }
 
-export type EventName = "hand_analyzed" | "parse_error" | "decision_viewed" | "profile_changed" | "range_edited" | "coach_requested" | "hand_saved" | "saved_hand_opened" | "signed_in";
+export type EventName = "hand_analyzed" | "parse_error" | "decision_viewed" | "profile_changed" | "range_edited" | "coach_requested" | "hand_saved" | "saved_hand_opened" | "signed_in" | "solver_run" | "solver_leak";
 
 /**
  * Records a product usage event. Never throws and never blocks the UI.
