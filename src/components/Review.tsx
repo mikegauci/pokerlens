@@ -6,6 +6,7 @@ import { ActionType, parseHand } from "@/lib/poker/parser";
 import { parseRange } from "@/lib/poker/ranges";
 import { SAMPLES, type SampleHand } from "@/lib/poker/samples";
 import { Cards } from "./PlayingCard";
+import Link from "next/link";
 import { AppShell } from "./AppShell";
 import { RangeGrid } from "./RangeGrid";
 import { TableView } from "./TableView";
@@ -623,7 +624,10 @@ function Method() {
         <li>
           <strong className="text-ink">The coach</strong> is a language model that only sees the computed numbers. It explains them and is told not to produce its own.
         </li>
-        <li>Short stacks, ICM, rake and mixed strategies are not modelled yet.</li>
+        <li>
+          <strong className="text-ink">Short stacks</strong> (about 15bb or less) use a <Link href="/pushfold" className="text-accent underline">push/fold equilibrium</Link> solved by PokerLens for preflop shoves, instead of the 100bb charts. Small blind against big blind is exact; with more players left to act, or a shove over an open, it is an approximation, and the verdict says so. It counts chips only, and a preflop all-in against one range uses enumerated equity instead of Monte Carlo.
+        </li>
+        <li>ICM, rake and mixed preflop strategies are not modelled yet.</li>
       </ul>
     </details>
   );

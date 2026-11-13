@@ -42,6 +42,7 @@ export function buildFacts(a: HandAnalysis, profile: VillainProfile): string {
     lines.push(parts.join("; ") + ".");
     for (const v of d.villains) lines.push(`   Opponent ${v.name} (${v.position}) range: ${v.rangeLabel}${v.custom ? " set by the user" : ""}, starting from [${v.rangeText}], about ${v.combos} weighted combos left.`);
     lines.push(`   Engine verdict: ${d.verdict.toUpperCase()}: ${d.title}.${d.evLossBb ? ` Estimated EV lost: ${d.evLossBb.toFixed(1)}bb.` : ""}`);
+    if (d.model) lines.push(`   Model used: ${d.model.name}${d.model.exact ? " (exact for that game)" : " (approximation)"}. ${d.model.note}`);
     if (d.chart) lines.push(`   Preflop chart (${d.chart.situation}) recommends: ${d.chart.recommended}.`);
   });
   return lines.join("\n");
@@ -53,7 +54,8 @@ You are given a fact sheet produced by a deterministic analysis engine. Rules:
 - Use only the numbers in the fact sheet. Never calculate or estimate new equities, EVs or frequencies yourself. If the player asks for a number that is not there, say the engine did not compute it and reason qualitatively.
 - The opponent ranges are simplified chart-based estimates narrowed by a heuristic, not solver output. Say so when a verdict is close or depends heavily on the range, and tell the player which read about the opponent would change the answer.
 - Equity is raw showdown equity. On earlier streets, mention implied odds, reverse implied odds or position when they matter.
-- Do not call anything "GTO" or "solver-approved". Distinguish between the theoretical baseline and exploitative adjustments against this opponent type.
+- When the fact sheet says "Model used" for a decision, that range or verdict comes from a push/fold equilibrium solved by the engine. You may call it an equilibrium of that model, and you must mention its stated limits.
+- Otherwise do not call anything "GTO" or "solver-approved". Distinguish between the theoretical baseline and exploitative adjustments against this opponent type.
 - Agree with the engine verdicts unless the fact sheet itself gives a reason to doubt one; if you do doubt one, say why.
 - Be direct and specific to this hand. No generic poker advice, no filler, no praise for its own sake.
 

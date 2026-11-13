@@ -216,7 +216,7 @@ Board [Td 6c 2s 5h Ac]`,
     id: "mtt-short-stack",
     title: "Tournament: KQs facing a 12bb shove",
     previewStreet: "preflop",
-    blurb: "The chart range for the shover is too tight for a short stack. Edit the villain range and watch the verdict change.",
+    blurb: "A 100bb 3-bet chart is far too tight for a 12bb shove, so the shover's range comes from a reshove equilibrium instead. Edit the range and watch the verdict change.",
     text: `PokerStars Hand #250000000006: Tournament #3999000111, $10+$1 USD Hold'em No Limit - Level XII (400/800) - 2026/11/08 21:40:12 ET
 Table '3999000111 14' 9-max Seat #5 is the button
 Seat 1: icm_ian (18250 in chips)
