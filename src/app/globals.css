@@ -61,8 +61,7 @@ body {
   }
 
   .sample-holding > span > span,
-  .sample-arrow,
-  .brand-link img {
+  .sample-arrow {
     transition: transform 180ms ease-out;
   }
 
@@ -81,10 +80,6 @@ body {
 
   .sample-card:is(:hover, :focus-visible) .sample-arrow {
     transform: translateX(3px);
-  }
-
-  .brand-link:is(:hover, :focus-visible) img {
-    transform: rotate(-6deg);
   }
 
   .deal-card {

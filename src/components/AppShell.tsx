@@ -19,7 +19,7 @@ export function AppShell({ children, onHome, reviewing = false, learning = false
           <Link href="/" aria-label="PokerLens home" onNavigate={onHome && ((event) => {
             event.preventDefault();
             onHome();
-          })} className="brand-link flex w-fit shrink-0 items-center gap-2 rounded-md">
+          })} className="flex w-fit shrink-0 items-center gap-2 rounded-md">
             <Image src="/pokerlens-mark.png" alt="" width={38} height={38} className="size-8 shrink-0 sm:size-[38px]" unoptimized priority />
             <span className="font-semibold tracking-tight max-[359px]:sr-only sm:text-lg">Poker<span className="text-accent">Lens</span></span>
           </Link>
