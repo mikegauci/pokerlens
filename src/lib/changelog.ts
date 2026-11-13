@@ -23,6 +23,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-11-14",
     title: "Guided tour",
+    pr: 13,
     roadmap: "Guided tour",
     href: "/?tour=1",
     summary: "A step-by-step walkthrough of every feature on its real page, started from the home page.",
