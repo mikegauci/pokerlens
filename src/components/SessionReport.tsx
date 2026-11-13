@@ -186,12 +186,12 @@ export function SessionReport() {
       <div className="mx-auto max-w-7xl px-4 pb-14 pt-6 sm:px-6 sm:pt-9">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Session leak report</h1>
         <p className="mt-2 max-w-2xl leading-relaxed text-muted">
-          Players improve by reviewing sessions, not single hands. Import a whole PokerStars session and see where the EV went, which spots cost the most, and your basic preflop stats with how much they can be trusted.
+          Players improve by reviewing sessions, not single hands. Import a whole session from PokerStars, GGPoker or 888poker and see where the EV went, which spots cost the most, and your basic preflop stats with how much they can be trusted.
         </p>
 
         <section id="import" tabIndex={-1} aria-labelledby="import-title" className="jump-target mt-6 rounded-xl border border-line bg-panel p-4 sm:p-6">
           <h2 id="import-title" className="text-lg font-semibold">Import a session</h2>
-          <p className="mt-1 text-sm text-muted">Paste many hands or upload a PokerStars hand history file. Hands that cannot be read are listed with the reason; the rest are still analysed.</p>
+          <p className="mt-1 text-sm text-muted">Paste many hands or upload a hand history file from PokerStars, GGPoker or 888poker (one file can mix sites). Hands that cannot be read are listed with the reason; the rest are still analysed.</p>
           <form
             onSubmit={(e) => {
               e.preventDefault();

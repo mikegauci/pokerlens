@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Decision, HandAnalysis, PROFILES, Verdict, VillainProfile, analyzeHand } from "@/lib/poker/analyze";
-import { ActionType, parseHand } from "@/lib/poker/parser";
+import { ActionType, FORMAT_NAMES, detectFormat, parseHand } from "@/lib/poker/parser";
 import { parseRange } from "@/lib/poker/ranges";
 import { SAMPLES, type SampleHand } from "@/lib/poker/samples";
 import { Cards } from "./PlayingCard";
@@ -51,6 +51,7 @@ function trackAnalysis(analysis: HandAnalysis, source: string) {
     mistakes: counts.mistake,
     inaccuracies: counts.inaccuracy,
     tournament: analysis.hand.isTournament,
+    site: analysis.hand.site,
   });
 }
 
@@ -106,7 +107,8 @@ export default function Review({ initialSample, initialDecisionIndex, source, ba
       setSelection({ index: decision.index, step: decision.actionIndex });
       trackAnalysis(a, source);
     } catch {
-      track("parse_error", { source });
+      const format = detectFormat(text);
+      track("parse_error", { source, site: format ? FORMAT_NAMES[format] : "unknown" });
     }
   };
 
@@ -221,7 +223,7 @@ export default function Review({ initialSample, initialDecisionIndex, source, ba
           </section>
           <section id="import" tabIndex={-1} className="jump-target mt-6 rounded-xl border border-line bg-panel p-5">
             <h2 className="text-xl font-semibold">Import a hand</h2>
-            <p id="hand-format" className="mt-1 text-sm text-muted">PokerStars text format · No-Limit Hold&apos;em cash or tournament</p>
+            <p id="hand-format" className="mt-1 text-sm text-muted">PokerStars, GGPoker or 888poker text format · No-Limit Hold&apos;em cash or tournament</p>
             <form className="mt-4" onSubmit={(e) => {
               e.preventDefault();
               if (draft.trim()) load(draft, "paste");
