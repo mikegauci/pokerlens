@@ -28,6 +28,7 @@ export function AppShell({ children, onHome, reviewing = false, learning = false
           </nav>
           <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
             <Link href="/solver" className="rounded-lg px-2 py-1.5 text-sm font-medium text-accent hover:bg-panel-2">Solver</Link>
+            <Link href="/train" className="rounded-lg px-2 py-1.5 text-sm font-medium text-accent hover:bg-panel-2">Train</Link>
             {learning ? (
               <Link href="/" className="rounded-lg border border-line px-2.5 py-1.5 text-sm hover:bg-panel-2">Review hands</Link>
             ) : (

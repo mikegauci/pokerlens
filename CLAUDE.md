@@ -45,7 +45,7 @@ One roadmap item per chat, one pull request per item.
 ### First: make the demo defensible
 
 - [x] **River solver.** A CFR solver for heads-up river spots: two ranges, a pot, a stack and a set of bet sizes in; equilibrium strategies and EVs out. Show mixed frequencies per hand, bluff-to-value ratio and minimum defence frequency, and the EV gained by deviating against an opponent who bluffs too little or too much. This is the first real GTO output in the app.
-- [ ] **Preflop range trainer.** Drill "position and hand, what do you do?" against the charts in `src/lib/poker/charts.ts`, with spaced repetition on missed hands and a per-position accuracy record. This is how players study ranges.
+- [x] **Preflop range trainer.** Drill "position and hand, what do you do?" against the charts in `src/lib/poker/charts.ts`, with spaced repetition on missed hands and a per-position accuracy record. This is how players study ranges.
 - [ ] **Push/fold Nash for short stacks.** Exact shove and call ranges by stack depth and position. Use it for tournament hands under about 15bb, which are currently judged with 100bb cash charts.
 - [ ] **Session import and leak report.** Upload many hands at once; report EV lost by spot type and basic stats (VPIP, PFR, 3-bet). Players review sessions, not single hands.
 - [ ] **Metrics page.** Read the `events` table and show the funnel: hand analysed, range edited, coach requested, hand saved. The table is write-only for clients today, so this needs a server-side read.

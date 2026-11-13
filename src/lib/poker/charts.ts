@@ -63,3 +63,25 @@ export function chartPos(position: string): ChartPos {
 export function openerGroup(position: string): OpenerGroup {
   return ["CO", "BTN", "BTN/SB", "SB", "BB"].includes(position) ? "late" : "early";
 }
+
+/** The raising chart and the calling chart for one preflop situation. An empty `callText` means raise or fold. */
+export interface ChartPair {
+  raiseText: string;
+  callText: string;
+}
+
+/** Folded to hero: open-raise or fold. */
+export function firstInCharts(position: string): ChartPair {
+  return { raiseText: RFI_TEXT[chartPos(position)], callText: "" };
+}
+
+/** Hero faces a single open-raise. The big blind defends wider because it closes the action at a discount. */
+export function facingOpenCharts(position: string, opener: string): ChartPair {
+  const g = openerGroup(opener);
+  return { raiseText: THREE_BET_TEXT[g], callText: position === "BB" ? BB_DEFEND_TEXT[g] : CALL_OPEN_TEXT[g] };
+}
+
+/** Hero opened and faces a 3-bet. One chart for every position: a simplification. */
+export function facingThreeBetCharts(): ChartPair {
+  return { raiseText: FOUR_BET_TEXT, callText: CALL_THREE_BET_TEXT };
+}
