@@ -100,6 +100,9 @@ export default function LearnPage() {
               <p>Build the betting range from the line your opponent took. The big blind called twice before leading when the king fell. Which hands improved to value, and which missed draws would actually bet? Your price stays fixed when you change the range.</p>
               <KnowledgeCheck question={bluffCatchQuestion} />
               <SampleLink sample={river}>Test the opponent’s bluff frequency</SampleLink>
+              <Link href="/solver/river-lead" className="inline-flex w-fit items-baseline gap-2 rounded-md text-sm font-medium text-accent underline-offset-4 hover:underline">
+                Solve this river for its equilibrium <span aria-hidden="true">→</span>
+              </Link>
             </Lesson>
             <Lesson title="Betting for value">
               <p>Pocket nines reach the river as a set. When the big blind checks, think about which Kx hands or two-pair combos could pay you, which stronger hands can raise, and how your sizing changes their response.</p>
@@ -120,7 +123,7 @@ export default function LearnPage() {
         </section>
 
         <p className="mt-8 border-t border-line pt-4 text-xs leading-relaxed text-muted">
-          PokerLens estimates equity against an editable range. The GTO and Nash glossary entries describe equilibrium strategies for a specified game model.
+          Hand reviews estimate equity against an editable range. The river solver computes an equilibrium for the ranges and bet sizes you give it, and only for those.
           {" "}<a href="https://blog.gtowizard.com/what-is-gto-in-poker/" className="text-accent underline underline-offset-2">Read more about GTO</a>
         </p>
       </div>
