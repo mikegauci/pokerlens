@@ -1,13 +1,12 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Decision, HandAnalysis, PROFILES, Verdict, VillainProfile, analyzeHand } from "@/lib/poker/analyze";
 import { ActionType, parseHand } from "@/lib/poker/parser";
 import { parseRange } from "@/lib/poker/ranges";
-import { SAMPLES } from "@/lib/poker/samples";
+import { SAMPLES, type SampleHand } from "@/lib/poker/samples";
 import { Cards } from "./PlayingCard";
+import { AppShell } from "./AppShell";
 import { RangeGrid } from "./RangeGrid";
 import { TableView } from "./TableView";
 import { CoachPanel } from "./CoachPanel";
@@ -43,18 +42,39 @@ const rounded = (x: number) => Number(num(x));
 const signedBb = (value: number) => `${value > 0 ? "+" : ""}${value}bb`;
 const signedTone = (value: number) => value > 0 ? "text-emerald-300" : value < 0 ? "text-rose-300" : "text-ink";
 
-export default function Review() {
+function trackAnalysis(analysis: HandAnalysis, source: string) {
+  const { counts } = analysis.summary;
+  track("hand_analyzed", {
+    source,
+    decisions: analysis.decisions.length,
+    mistakes: counts.mistake,
+    inaccuracies: counts.inaccuracy,
+    tournament: analysis.hand.isTournament,
+  });
+}
+
+function initialDecision(analysis: HandAnalysis, street?: SampleHand["previewStreet"]) {
+  const decisions = analysis.decisions;
+  const biggest = (candidates: Decision[]) => candidates.reduce((best, decision) =>
+    decision.toCall + decision.action.added > best.toCall + best.action.added ? decision : best,
+  );
+  const onStreet = street ? decisions.filter((decision) => decision.street === street) : [];
+  if (onStreet.length) return biggest(onStreet);
+  return decisions.find((decision) => decision.verdict === "mistake" || decision.verdict === "inaccuracy") ?? biggest(decisions);
+}
+
+export default function Review({ initialSample }: { initialSample?: SampleHand }) {
   const [draft, setDraft] = useState("");
-  const [handText, setHandText] = useState<string | null>(null);
+  const [handText, setHandText] = useState<string | null>(initialSample?.text ?? null);
   const [profile, setProfile] = useState<VillainProfile>("standard");
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [showdown, setShowdown] = useState(false);
-  const [selected, setSelected] = useState(0);
-  const [step, setStep] = useState(0);
+  const [selection, setSelection] = useState<{ index: number; step: number } | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const user = useUser();
   const workspaceTitle = useRef<HTMLHeadingElement>(null);
   const actionHistory = useRef<HTMLOListElement>(null);
+  const trackedInitialSample = useRef(false);
 
   const result = useMemo((): { analysis?: HandAnalysis; error?: string } => {
     if (!handText) return {};
@@ -70,25 +90,20 @@ export default function Review() {
     setProfile(saved?.profile ?? "standard");
     setHandText(text);
     setShowdown(false);
-    let first = 0;
+    setSelection(null);
     try {
       const a = analyzeHand(parseHand(text), { profile: saved?.profile, rangeOverrides: saved?.overrides });
-      const flagged = a.decisions.findIndex((d) => d.verdict === "mistake" || d.verdict === "inaccuracy");
-      // With nothing flagged, open on the biggest decision of the hand instead of the first.
-      const biggest = a.decisions.reduce((best, d) => (d.toCall + d.action.added > a.decisions[best].toCall + a.decisions[best].action.added ? d.index : best), 0);
-      const demoDecision = source === `sample:${DEMO.id}` ? a.decisions.findIndex((d) => d.street === "river") : -1;
-      first = demoDecision >= 0 ? demoDecision : flagged >= 0 ? flagged : biggest;
-      setStep(a.decisions[first]?.actionIndex ?? 0);
-      track("hand_analyzed", { source, decisions: a.decisions.length, mistakes: a.summary.counts.mistake, inaccuracies: a.summary.counts.inaccuracy, tournament: a.hand.isTournament });
+      const decision = initialDecision(a, source === `sample:${DEMO.id}` ? DEMO.previewStreet : undefined);
+      setSelection({ index: decision.index, step: decision.actionIndex });
+      trackAnalysis(a, source);
     } catch {
-      setStep(0);
       track("parse_error", { source });
     }
-    setSelected(first);
   };
 
   const goHome = () => {
     setHandText(null);
+    setSelection(null);
     setAuthOpen(false);
     if (window.location.hash) window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -96,6 +111,14 @@ export default function Review() {
 
   const analysis = result.analysis;
   const hasAnalysis = Boolean(analysis);
+  const defaultDecision = analysis && !selection ? initialDecision(analysis, initialSample?.previewStreet) : undefined;
+  const selected = selection?.index ?? defaultDecision?.index ?? 0;
+  const step = selection?.step ?? defaultDecision?.actionIndex ?? 0;
+  useEffect(() => {
+    if (!initialSample || !analysis || trackedInitialSample.current) return;
+    trackedInitialSample.current = true;
+    trackAnalysis(analysis, `sample:${initialSample.id}`);
+  }, [initialSample, analysis]);
   useEffect(() => {
     if (hasAnalysis) workspaceTitle.current?.focus();
   }, [hasAnalysis]);
@@ -113,7 +136,7 @@ export default function Review() {
 
   if (!analysis) {
     return (
-      <Shell onHome={goHome} account={account} links={[
+      <AppShell onHome={initialSample ? undefined : goHome} account={account} links={[
         { href: "#import", label: "Import" },
         { href: "#samples", label: "Sample hands" },
         ...(user ? [{ href: "#saved-hands", label: "Saved hands" }] : []),
@@ -219,7 +242,7 @@ export default function Review() {
           />
           <Method />
         </div>
-      </Shell>
+      </AppShell>
     );
   }
 
@@ -231,8 +254,7 @@ export default function Review() {
 
   const select = (i: number) => {
     track("decision_viewed", { street: analysis.decisions[i].street, verdict: analysis.decisions[i].verdict });
-    setSelected(i);
-    setStep(analysis.decisions[i].actionIndex);
+    setSelection({ index: i, step: analysis.decisions[i].actionIndex });
     setShowdown(false);
   };
 
@@ -241,12 +263,12 @@ export default function Review() {
     if (!next) return;
     setShowdown(false);
     if (next.decisionIndex !== null && next.decisionIndex !== selected) select(next.decisionIndex);
-    else setStep(index);
+    else setSelection({ index: selected, step: index });
   };
 
   return (
-    <Shell
-      onHome={goHome}
+    <AppShell
+      onHome={initialSample ? undefined : goHome}
       reviewing
       account={account}
       links={[
@@ -385,44 +407,7 @@ export default function Review() {
         </div>
         <Method />
       </div>
-    </Shell>
-  );
-}
-
-function Shell({ children, onHome, reviewing = false, account, links }: {
-  children: React.ReactNode;
-  onHome: () => void;
-  reviewing?: boolean;
-  account?: React.ReactNode;
-  links: { href: string; label: string }[];
-}) {
-  return (
-    <div className="min-h-screen">
-      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-panel focus:px-3 focus:py-2">Skip to content</a>
-      <header className="sticky top-0 z-20 border-b border-line bg-bg/95 backdrop-blur">
-        <div className="mx-auto grid max-w-7xl grid-cols-[1fr_auto] items-center gap-x-2 gap-y-2 px-2.5 py-2.5 sm:grid-cols-[auto_1fr_auto] sm:gap-x-4 sm:px-6">
-          <Link href="/" aria-label="PokerLens home" onNavigate={(event) => {
-            event.preventDefault();
-            onHome();
-          }} className="brand-link flex w-fit shrink-0 items-center gap-2 rounded-md">
-            <Image src="/pokerlens-mark.png" alt="" width={38} height={38} className="size-8 sm:size-[38px]" unoptimized priority />
-            <span className="font-semibold tracking-tight sm:text-lg">Poker<span className="text-accent">Lens</span></span>
-          </Link>
-          <nav aria-label="Workspace" className="order-last col-span-2 flex items-center gap-1 border-t border-line pt-1.5 sm:order-none sm:col-span-1 sm:border-0 sm:pt-0">
-            {links.map((link) => <a key={link.href} href={link.href} className="rounded-md px-2.5 py-1.5 text-xs font-medium text-muted hover:bg-panel-2 hover:text-ink sm:text-sm">{link.label}</a>)}
-          </nav>
-          <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
-            {reviewing && (
-              <button onClick={onHome} className="rounded-lg border border-line px-2.5 py-1.5 text-sm hover:bg-panel-2">
-                New hand
-              </button>
-            )}
-            {account}
-          </div>
-        </div>
-      </header>
-      <main id="main" tabIndex={-1} className="jump-target">{children}</main>
-    </div>
+    </AppShell>
   );
 }
 
