@@ -4,8 +4,10 @@ import type { ReactNode } from "react";
 import { AppShell } from "@/components/AppShell";
 import { CallEvExercise, KnowledgeCheck } from "@/components/LearnExercises";
 import { Cards } from "@/components/PlayingCard";
+import { RiverChallenge } from "@/components/RiverChallenge";
 import { PokerGlossary } from "@/components/PokerGlossary";
 import { bluffCatchQuestion, valueBetQuestion } from "@/lib/poker/learn";
+import { analyzeHand, type AnalysisOptions } from "@/lib/poker/analyze";
 import { parseHand } from "@/lib/poker/parser";
 import { SAMPLES, type SampleHand } from "@/lib/poker/samples";
 
@@ -33,6 +35,21 @@ const draw = getSample("flush-draw-price");
 const value = getSample("missed-value");
 const threeBet = getSample("kjo-3bet-pot");
 
+const riverHand = parseHand(river.text);
+const riverBettor = riverHand.actions.find((action) => action.street === "river" && action.type === "bet" && action.player !== riverHand.hero);
+if (!riverBettor) throw new Error("The river challenge needs an opponent bet.");
+
+const rangePresets: { label: string; description: string; options?: AnalysisOptions }[] = [
+  { label: "Standard estimate", description: "PokerLens estimates a mix of value hands and bluffs from the big blind’s actions." },
+  { label: "Value-heavy example", description: "Assume the big blind reaches this spot with KQ, KTs, K8s, K5s, or a set of eights, fives, or threes.", options: { rangeOverrides: { [riverBettor.player]: "KQ,KTs,K8s,K5s,88,55,33" } } },
+  { label: "Bluffs more often", description: "The same starting range, with more weight on weaker hands when the big blind bets.", options: { profile: "aggressive" } },
+];
+const riverSpots = rangePresets.map(({ label, description, options }) => {
+  const spot = analyzeHand(riverHand, options).decisions.find((decision) => decision.street === "river" && decision.toCall > 0);
+  if (spot?.equity === undefined || spot.evCall === undefined) throw new Error("The river challenge needs an equity estimate.");
+  return { label, description, equity: spot.equity, callEv: spot.evCall / riverHand.bb, pot: spot.pot / riverHand.bb, toCall: spot.toCall / riverHand.bb };
+});
+
 export default function LearnPage() {
   return (
     <AppShell learning links={sections}>
@@ -43,12 +60,21 @@ export default function LearnPage() {
             <p className="mt-3 max-w-lg leading-relaxed text-muted">
               You know how to play a hand. Practice putting an opponent on a range, pricing a call, and deciding when to bet for value.
             </p>
-            <Link href="#fundamentals" className="mt-5 inline-flex rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-emerald-950 hover:bg-emerald-300">
-              Start with pot odds <span className="ml-2" aria-hidden="true">↓</span>
+            <Link href="#river-challenge" className="mt-5 inline-flex rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-emerald-950 hover:bg-emerald-300">
+              Play the river challenge <span className="ml-2" aria-hidden="true">↓</span>
             </Link>
           </div>
-          <SampleSpot sample={river} boardCount={5} />
+          <SampleSpot sample={river} title="A♥ J♥ on the button" />
         </section>
+
+        <RiverChallenge
+          hero={riverHand.heroCards}
+          board={riverHand.board}
+          pot={riverSpots[0].pot}
+          toCall={riverSpots[0].toCall}
+          ranges={riverSpots}
+          sampleHref={`/samples/${river.id}`}
+        />
 
         <section id="fundamentals" tabIndex={-1} aria-labelledby="fundamentals-title" className="jump-target mt-8">
           <h2 id="fundamentals-title" className="text-2xl font-semibold tracking-tight">Fundamentals</h2>
@@ -82,7 +108,7 @@ export default function LearnPage() {
             </Lesson>
             <Lesson title="Facing a 3-bet out of position">
               <p>When the button re-raises your cutoff open, you’ll act first postflop. KJo can make top pair and still lose to stronger kings. Weigh the size, effective stacks, and how wide the button re-raises before committing more chips.</p>
-              <SampleSpot sample={threeBet} boardCount={0} />
+              <SampleSpot sample={threeBet} />
               <SampleLink sample={threeBet}>Review the preflop call</SampleLink>
             </Lesson>
           </div>
@@ -111,9 +137,8 @@ function Lesson({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function SampleSpot({ sample, boardCount }: { sample: SampleHand; boardCount: number }) {
+function SampleSpot({ sample, title = sample.title }: { sample: SampleHand; title?: string }) {
   const hand = parseHand(sample.text);
-  const board = hand.board.slice(0, boardCount);
   return (
     <div className="sample-felt rounded-xl border border-accent/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-end gap-3">
@@ -121,14 +146,8 @@ function SampleSpot({ sample, boardCount }: { sample: SampleHand; boardCount: nu
           <p className="mb-1 text-xs font-medium text-emerald-100/80">Hero</p>
           <Cards cards={hand.heroCards} size="sm" />
         </div>
-        {board.length > 0 && (
-          <div>
-            <p className="mb-1 text-xs font-medium capitalize text-emerald-100/80">{sample.previewStreet} board</p>
-            <Cards cards={board} size="sm" />
-          </div>
-        )}
       </div>
-      <p className="mt-2 text-sm font-semibold text-ink">{sample.title}</p>
+      <p className="mt-2 text-sm font-semibold text-ink">{title}</p>
     </div>
   );
 }
