@@ -110,11 +110,14 @@ describe("consistency properties", () => {
     expect(e("standard")).toBeLessThan(e("aggressive"));
   });
   it("gives more equity against a wider shoving range", () => {
-    const tight = run("mtt-short-stack").decisions[1];
+    // The default range for this 12bb shove now comes from the reshove model (see tests/pushfold.test.ts),
+    // so the tight range is set by hand here: the 100bb 3-bet chart the review used to assume.
+    const tight = run("mtt-short-stack", { rangeOverrides: { short_shover: "TT+, AQs+, AKo, AQo, A5s-A2s, KQs, KJs, 76s, 65s" } }).decisions[1];
     const wide = run("mtt-short-stack", { rangeOverrides: { short_shover: "22+, A2s+, K9s+, QTs+, JTs, A7o+, KTo+, QJo" } }).decisions[1];
     expect(wide.equity!).toBeGreaterThan(tight.equity! + 0.05);
     expect(wide.verdict).toBe("good");
     expect(wide.villains[0].custom).toBe(true);
+    expect(wide.model).toBeUndefined();
   });
   it("keeps every equity inside 0..1 and every price consistent", () => {
     for (const s of SAMPLES) {

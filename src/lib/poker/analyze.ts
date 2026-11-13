@@ -19,6 +19,7 @@ import {
 import { equityVsRanges } from "./equity";
 import { describeHand } from "./evaluator";
 import { Action, POSTFLOP_ORDER, ParsedHand, Street } from "./parser";
+import { PUSH_FOLD_MAX_BB, ShoveGame, equityVsRange, formatRange, solveShoveGame } from "./pushfold";
 import { Combo, Range, classWeights, expandRange, narrowRange, parseRange, removeDead, totalWeight } from "./ranges";
 
 export type Verdict = "good" | "ok" | "inaccuracy" | "mistake";
@@ -29,9 +30,25 @@ export const MARGINS = {
   close: 0.05,
   /** Band used when the decision closes the action, covering Monte Carlo noise only. */
   exact: 0.03,
+  /** Band for a preflop all-in against one range, where equity is enumerated instead of sampled. */
+  enumerated: 0.005,
   valueBet: 0.6,
   bluff: 0.35,
+  /** Big blinds of EV within which a push/fold shove or fold counts as close. */
+  shoveClose: 0.05,
+  /** A push/fold error at least this many big blinds is a mistake; smaller ones are inaccuracies. */
+  shoveMistake: 0.5,
 };
+
+/** The solved model behind a verdict or an opponent range, so the UI and coach can say where it came from. */
+export interface ModelNote {
+  name: string;
+  /** True only when the model has no approximation beyond its own rules. */
+  exact: boolean;
+  note: string;
+}
+
+const PUSH_FOLD_LIMITS = "Chip EV only: no ICM, and nobody limps, raises small or calls to see a flop.";
 
 export interface VillainView {
   name: string;
@@ -79,6 +96,8 @@ export interface Decision {
   /** True when no further betting is possible, so equity versus pot odds is exact for the assumed range. */
   exact: boolean;
   chart?: ChartAdvice;
+  /** Set when a push/fold solution judged this decision or supplied the range hero is up against. */
+  model?: ModelNote;
   verdict: Verdict;
   title: string;
   reasons: string[];
@@ -171,6 +190,71 @@ export function analyzeHand(hand: ParsedHand, opts: AnalysisOptions = {}): HandA
   let limpers = 0;
   let firstRaiser: string | null = null;
   let heroRole: "none" | "limp" | "open" | "raise" = "none";
+  /** Calls made after the first raise. A shove over an open and a caller is outside the push/fold models. */
+  let coldCalls = 0;
+  /** The villain whose all-in range came from a push/fold model, with that model. */
+  let shoveModel: { player: string; model: ModelNote } | null = null;
+  /** Whether the decision being judged has enumerated equity (exact) or Monte Carlo equity. */
+  let enumerated = false;
+
+  const signedBb = (x: number) => `${x >= 0 ? "+" : "-"}${Math.abs(x).toFixed(2)}bb`;
+  const totalBb = (name: string) => (stacks[name] + invested[name]) / bb;
+  const stackLabel = (s: number) => `${Number(s.toFixed(1))}bb`;
+  /** Players who have not folded, other than `name`, in the order they act before the flop. */
+  const leftToAct = (name: string) => {
+    const order = (pos: string) => (pos === "BB" ? 100 : pos === "SB" ? 99 : POSTFLOP_ORDER.indexOf(pos));
+    return hand.players.filter((p) => p.name !== name && !folded.has(p.name)).sort((x, y) => order(x.position) - order(y.position));
+  };
+
+  /**
+   * The push/fold game for a player who is first in, built from the real stacks, blinds and antes.
+   * Null when the effective stack is too deep for push/fold or the spot is not a clean first-in.
+   */
+  const firstInShove = (name: string, potNow = pot, postedNow = invested[name]): { game: ShoveGame; model: ModelNote; stack: number } | null => {
+    if (street !== "preflop" || raises > 0 || limpers > 0) return null;
+    const behind = leftToAct(name);
+    if (!behind.length || posOf[name] === "BB") return null;
+    const stack = Math.min(totalBb(name), Math.max(...behind.map((p) => totalBb(p.name))));
+    if (stack > PUSH_FOLD_MAX_BB || stack <= postedNow / bb) return null;
+    const exact = behind.length === 1;
+    return {
+      stack,
+      game: {
+        stack,
+        pot: potNow / bb,
+        shover: { posted: postedNow / bb },
+        callers: behind.map((p) => ({ posted: invested[p.name] / bb, stack: totalBb(p.name) })),
+      },
+      model: {
+        name: `Push/fold equilibrium, ${stackLabel(stack)} effective, ${behind.length} player${behind.length > 1 ? "s" : ""} left to act`,
+        exact,
+        note: exact
+          ? `Solved exactly for a shove-or-fold game against one caller. ${PUSH_FOLD_LIMITS}`
+          : `An approximation with several players left: at most one of them calls, and their cards are treated as independent. ${PUSH_FOLD_LIMITS}`,
+      },
+    };
+  };
+
+  /**
+   * The game where `name` moves all-in over a single open-raise and only the opener can call.
+   * `openerRange` is what the opener is assumed to have raised with.
+   */
+  const reshove = (name: string, openerRangeText: string, potNow = pot, postedNow = invested[name]): { game: ShoveGame; model: ModelNote; stack: number } | null => {
+    if (street !== "preflop" || raises !== 1 || coldCalls > 0 || !firstRaiser || firstRaiser === name || folded.has(firstRaiser)) return null;
+    const stack = Math.min(totalBb(name), totalBb(firstRaiser));
+    if (stack > PUSH_FOLD_MAX_BB || stack <= postedNow / bb || stack <= invested[firstRaiser] / bb) return null;
+    const range = parseRange(openerRangeText).range;
+    if (!range.size) return null;
+    return {
+      stack,
+      game: { stack, pot: potNow / bb, shover: { posted: postedNow / bb }, callers: [{ posted: invested[firstRaiser] / bb, range }] },
+      model: {
+        name: `Reshove equilibrium, ${stackLabel(stack)} effective, against a ${posOf[firstRaiser]} open`,
+        exact: false,
+        note: `An approximation: the opener's range is an estimate from the opening chart, the shover moves all-in or folds, and only the opener can call. ${PUSH_FOLD_LIMITS}`,
+      },
+    };
+  };
 
   const decisions: Decision[] = [];
   const timeline: Snapshot[] = [];
@@ -188,8 +272,21 @@ export function analyzeHand(hand: ParsedHand, opts: AnalysisOptions = {}): HandA
     };
   };
 
-  const updatePreflopRange = (a: Action) => {
+  /** `potBefore` and `postedBefore` are the pot and the player's own chips in it before this action. */
+  const updatePreflopRange = (a: Action, potBefore: number, postedBefore: number) => {
     const pos = posOf[a.player];
+    if (a.type === "raise" && a.allIn) {
+      // A short-stack shove is a push/fold decision, so its range comes from that model instead of the 100bb charts.
+      const spot =
+        raises === 0
+          ? firstInShove(a.player, potBefore, postedBefore)
+          : reshove(a.player, firstRaiser === hero ? RFI_TEXT[chartPos(heroPlayer.position)] : (villains[firstRaiser ?? ""]?.text ?? ""), potBefore, postedBefore);
+      if (spot) {
+        setVillainRange(a.player, spot.model.name, formatRange(solveShoveGame(spot.game).shove));
+        shoveModel = villains[a.player].custom ? null : { player: a.player, model: spot.model };
+        return;
+      }
+    }
     if (a.type === "raise" || a.type === "bet") {
       if (raises === 0) setVillainRange(a.player, `${pos} open-raise`, RFI_TEXT[chartPos(pos)]);
       else if (raises === 1) {
@@ -309,6 +406,9 @@ export function analyzeHand(hand: ParsedHand, opts: AnalysisOptions = {}): HandA
       const n = d.exact ? iterations * 4 : iterations;
       const res = equityVsRanges(hand.heroCards, board, opponents.map((p) => villains[p.name].combos), n, rng);
       if (res.samples > 0) d.equity = res.equity;
+      // A preflop all-in against one range needs no sampling: the equity table has the exact answer.
+      enumerated = street === "preflop" && d.exact && opponents.length === 1;
+      if (enumerated) d.equity = equityVsRange(heroClass, Object.fromEntries(parseRange(villains[opponents[0].name].text).range));
     }
 
     if (toCall > 0) {
@@ -370,19 +470,76 @@ export function analyzeHand(hand: ParsedHand, opts: AnalysisOptions = {}): HandA
     }
   };
 
+  /** Judges hero's own shove, or a fold where shoving was the alternative, by the EV the push/fold model gives it. */
+  const judgeShove = (d: Decision, spot: { game: ShoveGame; model: ModelNote; stack: number }) => {
+    const sol = solveShoveGame(spot.game);
+    const gain = sol.shoveEv[heroClass] + spot.game.shover.posted;
+    const shoved = d.action.type === "raise";
+    d.model = spot.model;
+    if (shoved) {
+      if (gain >= 0) {
+        d.verdict = "good";
+        d.title = "Profitable shove";
+      } else if (gain > -MARGINS.shoveClose) {
+        d.verdict = "ok";
+        d.title = "Close shove";
+      } else {
+        d.verdict = -gain >= MARGINS.shoveMistake ? "mistake" : "inaccuracy";
+        d.title = "Shove loses chips against these callers";
+        d.evLossBb = -gain;
+      }
+    } else if (gain > MARGINS.shoveClose) {
+      d.verdict = gain >= MARGINS.shoveMistake ? "mistake" : "inaccuracy";
+      d.title = "Folded a profitable shove";
+      d.evLossBb = gain;
+    } else if (gain >= -MARGINS.shoveClose) {
+      d.verdict = "ok";
+      d.title = "Close fold";
+    } else {
+      d.verdict = "good";
+      d.title = "Good fold";
+    }
+    d.reasons.push(
+      `Shoving ${heroClass} for ${stackLabel(spot.stack)} is worth ${signedBb(gain)} compared with folding, against opponents who call with their equilibrium ranges.`,
+      `The equilibrium shoves ${pct(sol.shovePct)} of hands here: ${formatRange(sol.shove) || "nothing"}.`,
+      `${spot.model.name}. ${spot.model.note}`,
+    );
+  };
+
   const judgePreflop = (d: Decision) => {
-    const advice = preflopAdvice(d.toCall);
-    d.chart = advice;
     const act = d.action.type;
-    const rec = advice.recommended;
     const facingRaise = raises > 0;
 
+    // Under about 15bb, hero's own shove (or a fold where shoving was the option) is a push/fold decision.
+    const ownShove =
+      act === "fold" || (act === "raise" && d.action.allIn)
+        ? raises === 0
+          ? firstInShove(hero)
+          : act === "raise" && heroRole === "none" && villains[firstRaiser ?? ""]
+            ? reshove(hero, villains[firstRaiser!].text)
+            : null
+        : null;
+    if (ownShove) return judgeShove(d, ownShove);
+
     // An all-in call or fold is a pure price decision, so use equity instead of the chart.
-    if (d.exact && d.equity !== undefined && (act === "call" || act === "fold")) {
-      judgeByPotOdds(d, MARGINS.exact);
-      d.reasons.push("This is an all-in decision, so the comparison of equity and pot odds is exact for the assumed range.");
+    const facingModelShove = shoveModel !== null && !folded.has(shoveModel.player) && d.toCall > 0;
+    if ((d.exact || facingModelShove) && d.equity !== undefined && (act === "call" || act === "fold")) {
+      judgeByPotOdds(d, enumerated ? MARGINS.enumerated : d.exact ? MARGINS.exact : MARGINS.close);
+      d.reasons.push(
+        d.exact
+          ? "This is an all-in decision, so the comparison of equity and pot odds is exact for the assumed range."
+          : "Players behind you can still act, which this price comparison ignores.",
+      );
+      if (facingModelShove) {
+        d.model = shoveModel!.model;
+        d.reasons.push(`The shover's range is not from the 100bb charts: ${shoveModel!.model.name}. ${shoveModel!.model.note}`);
+      }
       return;
     }
+
+    const advice = preflopAdvice(d.toCall);
+    d.chart = advice;
+    const rec = advice.recommended;
 
     const chartLine = `Chart for "${advice.situation}": raise ${advice.raiseText}${advice.callText ? `; call ${advice.callText}` : ""}.`;
     if (act === "check") {
@@ -450,6 +607,13 @@ export function analyzeHand(hand: ParsedHand, opts: AnalysisOptions = {}): HandA
       }
     }
     d.reasons.push(chartLine);
+    const shallow = act === "raise" || act === "call" ? firstInShove(hero) : null;
+    if (shallow) {
+      const sol = solveShoveGame(shallow.game);
+      d.reasons.push(
+        `You have only ${stackLabel(shallow.stack)} effective. The push/fold model would ${sol.shove[heroClass] >= 0.5 ? "shove" : "fold"} ${heroClass} here, but it has no limp or small raise, so this verdict still comes from the 100bb chart.`,
+      );
+    }
     if (d.equity !== undefined && d.potOdds !== undefined) {
       d.reasons.push(`For reference: about ${pct(d.equity)} raw equity against the assumed range, with ${pct(d.potOdds)} needed on price alone. Preflop, position and playability matter as much as raw equity.`);
     }
@@ -577,6 +741,7 @@ export function analyzeHand(hand: ParsedHand, opts: AnalysisOptions = {}): HandA
 
     const p = a.player;
     const potBefore = pot;
+    const postedBefore = invested[p];
     if (a.type === "post") {
       stacks[p] -= a.amount;
       invested[p] += a.amount;
@@ -598,7 +763,7 @@ export function analyzeHand(hand: ParsedHand, opts: AnalysisOptions = {}): HandA
 
     if (a.type !== "post" && a.type !== "fold") {
       if (p !== hero) {
-        if (street === "preflop") updatePreflopRange(a);
+        if (street === "preflop") updatePreflopRange(a, potBefore, postedBefore);
         else if (villains[p]) {
           const chips = pot - potBefore;
           const base = a.type === "call" ? potBefore - chips : potBefore;
@@ -615,7 +780,7 @@ export function analyzeHand(hand: ParsedHand, opts: AnalysisOptions = {}): HandA
         } else if (a.type === "call" && raises === 0) {
           limpers++;
           if (p === hero) heroRole = "limp";
-        }
+        } else if (a.type === "call") coldCalls++;
       }
     }
 
