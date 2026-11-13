@@ -207,7 +207,7 @@ export function SavedHands({ user, onOpen }: { user: User | null; onOpen: (h: Sa
   const topLeaks = [...leakCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
 
   return (
-    <section className="mt-12" aria-label="Your saved hands">
+    <section id="saved-hands" tabIndex={-1} className="jump-target mt-8" aria-label="Your saved hands">
       <h2 className="text-sm font-medium uppercase tracking-wider text-muted">Your saved hands</h2>
       {error && <p className="mt-2 text-sm text-rose-300">Could not load your hands. Refresh to try again.</p>}
       {hands === null ? (

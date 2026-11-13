@@ -1,14 +1,13 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-bg: #0a0f0d;
-  --color-panel: #111816;
-  --color-panel-2: #18211e;
-  --color-line: #24302c;
-  --color-ink: #e8efec;
-  --color-muted: #8fa39b;
-  --color-felt: #14532d;
-  --color-accent: #34d399;
+  --color-bg: #0b101a;
+  --color-panel: #121a29;
+  --color-panel-2: #1a2537;
+  --color-line: #2b394f;
+  --color-ink: #edf3fc;
+  --color-muted: #a2b0c5;
+  --color-accent: #63e6ba;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -21,6 +20,25 @@ body {
   background: var(--color-bg);
   color: var(--color-ink);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+:is(button, a, textarea, input, select, summary):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+.jump-target {
+  scroll-margin-top: 7rem;
+}
+
+.review-hero {
+  background:
+    radial-gradient(ellipse at 83% 30%, #174045 0%, transparent 58%),
+    linear-gradient(115deg, #15213b, #121b2c 48%, #10242c);
+}
+
+.replay-felt {
+  background: radial-gradient(ellipse at 50% 28%, #146354, #123b42 72%);
 }
 
 .tabular {

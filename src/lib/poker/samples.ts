@@ -8,7 +8,7 @@ export interface SampleHand {
 export const SAMPLES: SampleHand[] = [
   {
     id: "river-lead",
-    title: "Top pair facing a river lead",
+    title: "Second pair facing a river lead",
     blurb: "AJs on the button. Villain check-calls twice, then leads the river when a king falls. Try the opponent profiles on this one.",
     text: `PokerStars Hand #250000000001:  Hold'em No Limit ($0.50/$1.00 USD) - 2026/11/02 20:14:33 ET
 Table 'Alnitak IV' 6-max Seat #4 is the button

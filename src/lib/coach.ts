@@ -77,7 +77,8 @@ export function fallbackExplanation(a: HandAnalysis): string {
     out.push("", "**Street by street**");
     for (const d of flagged) if (d !== worst) out.push(`- ${d.street}: ${d.title}. ${d.reasons[0] ?? ""}`);
   }
-  out.push("", "_This is the built-in summary. Add an OpenAI API key to get the AI coach and follow-up questions._");
+  const net = Number(a.summary.netBb.toFixed(1));
+  out.push("", `**Hand result**: ${net > 0 ? "+" : ""}${net}bb.`);
   return out.join("\n");
 }
 

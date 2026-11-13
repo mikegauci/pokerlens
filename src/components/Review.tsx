@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Image from "next/image";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Decision, HandAnalysis, PROFILES, Verdict, VillainProfile, analyzeHand } from "@/lib/poker/analyze";
-import { parseHand } from "@/lib/poker/parser";
+import { ActionType, parseHand } from "@/lib/poker/parser";
 import { parseRange } from "@/lib/poker/ranges";
 import { SAMPLES } from "@/lib/poker/samples";
 import { Cards } from "./PlayingCard";
@@ -19,18 +20,36 @@ const VERDICT: Record<Verdict, { label: string; chip: string; dot: string }> = {
   mistake: { label: "Mistake", chip: "bg-rose-400/15 text-rose-300 border-rose-400/30", dot: "bg-rose-400" },
 };
 
+const DEMO = SAMPLES[0];
+const DEMO_HAND = parseHand(DEMO.text);
+const STREETS = ["preflop", "flop", "turn", "river"] as const;
+const ACTION: Record<ActionType, { label: string; color: string }> = {
+  post: { label: "Post", color: "bg-panel-2 text-muted" },
+  fold: { label: "Fold", color: "bg-slate-400/15 text-slate-300" },
+  check: { label: "Check", color: "bg-sky-400/15 text-sky-300" },
+  call: { label: "Call", color: "bg-emerald-400/15 text-emerald-300" },
+  bet: { label: "Bet", color: "bg-amber-400/15 text-amber-200" },
+  raise: { label: "Raise", color: "bg-violet-400/15 text-violet-200" },
+};
+
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 const num = (x: number) => (Math.round(x * 10) / 10).toString();
+const rounded = (x: number) => Number(num(x));
+const signedBb = (value: number) => `${value > 0 ? "+" : ""}${value}bb`;
+const signedTone = (value: number) => value > 0 ? "text-emerald-300" : value < 0 ? "text-rose-300" : "text-ink";
 
 export default function Review() {
   const [draft, setDraft] = useState("");
   const [handText, setHandText] = useState<string | null>(null);
   const [profile, setProfile] = useState<VillainProfile>("standard");
   const [overrides, setOverrides] = useState<Record<string, string>>({});
+  const [showdown, setShowdown] = useState(false);
   const [selected, setSelected] = useState(0);
   const [step, setStep] = useState(0);
   const [authOpen, setAuthOpen] = useState(false);
   const user = useUser();
+  const workspaceTitle = useRef<HTMLHeadingElement>(null);
+  const actionHistory = useRef<HTMLOListElement>(null);
 
   const result = useMemo((): { analysis?: HandAnalysis; error?: string } => {
     if (!handText) return {};
@@ -45,77 +64,124 @@ export default function Review() {
     setOverrides(saved?.overrides ?? {});
     setProfile(saved?.profile ?? "standard");
     setHandText(text);
+    setShowdown(false);
     let first = 0;
     try {
-      const a = analyzeHand(parseHand(text));
+      const a = analyzeHand(parseHand(text), { profile: saved?.profile, rangeOverrides: saved?.overrides });
       const flagged = a.decisions.findIndex((d) => d.verdict === "mistake" || d.verdict === "inaccuracy");
       // With nothing flagged, open on the biggest decision of the hand instead of the first.
       const biggest = a.decisions.reduce((best, d) => (d.toCall + d.action.added > a.decisions[best].toCall + a.decisions[best].action.added ? d.index : best), 0);
-      first = flagged >= 0 ? flagged : biggest;
+      const demoDecision = source === `sample:${DEMO.id}` ? a.decisions.findIndex((d) => d.street === "river") : -1;
+      first = demoDecision >= 0 ? demoDecision : flagged >= 0 ? flagged : biggest;
       setStep(a.decisions[first]?.actionIndex ?? 0);
       track("hand_analyzed", { source, decisions: a.decisions.length, mistakes: a.summary.counts.mistake, inaccuracies: a.summary.counts.inaccuracy, tournament: a.hand.isTournament });
     } catch {
-      /* the error is shown from the memo above */
+      setStep(0);
       track("parse_error", { source });
     }
     setSelected(first);
   };
 
   const analysis = result.analysis;
+  const hasAnalysis = Boolean(analysis);
+  useEffect(() => {
+    if (hasAnalysis) workspaceTitle.current?.focus();
+  }, [hasAnalysis]);
+  useEffect(() => {
+    const history = actionHistory.current;
+    const current = history?.querySelector<HTMLButtonElement>('[aria-current="step"]');
+    if (!history || !current) return;
+    const top = current.offsetTop;
+    const bottom = top + current.offsetHeight;
+    if (top < history.scrollTop) history.scrollTop = top;
+    if (bottom > history.scrollTop + history.clientHeight) history.scrollTop = bottom - history.clientHeight;
+  }, [hasAnalysis, step]);
   const account = <AccountButton user={user} onSignIn={() => setAuthOpen(true)} />;
   const dialog = authOpen ? <AuthDialog onClose={() => setAuthOpen(false)} /> : null;
 
   if (!analysis) {
     return (
-      <Shell account={account}>
+      <Shell account={account} links={[
+        { href: "#import", label: "Import" },
+        { href: "#samples", label: "Sample hands" },
+        ...(user ? [{ href: "#saved-hands", label: "Saved hands" }] : []),
+      ]}>
         {dialog}
-        <section className="mx-auto max-w-3xl px-4 py-10 sm:py-16">
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Find the decision that cost you the pot.</h1>
-          <p className="mt-3 max-w-2xl text-muted">
-            Paste a hand history. PokerLens replays it, works out your equity, pot odds and EV at every decision, and a coach explains what to do differently.
-          </p>
-          <form
-            className="mt-8"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (draft.trim()) load(draft, "paste");
-            }}
-          >
-            <label htmlFor="hh" className="text-sm font-medium">
-              Hand history
-            </label>
-            <textarea
-              id="hh"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              spellCheck={false}
-              placeholder={"PokerStars Hand #123456789:  Hold'em No Limit ($0.50/$1.00 USD) ...\nTable 'Alnitak IV' 6-max Seat #4 is the button\nSeat 1: ..."}
-              className="mt-2 h-44 w-full resize-y rounded-xl border border-line bg-panel p-3 font-mono text-xs text-ink placeholder:text-muted/50 focus:border-accent focus:outline-none"
-            />
-            {result.error && (
-              <p role="alert" className="mt-2 rounded-lg border border-rose-400/30 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
-                {result.error}
+        <div className="mx-auto max-w-7xl px-4 pb-12 pt-6 sm:px-6 sm:pt-9">
+          <section className="review-hero grid items-center gap-7 rounded-2xl border border-line p-6 sm:p-9 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)]">
+            <div>
+              <h1 className="max-w-xl text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">Review your toughest poker decisions</h1>
+              <p className="mt-3 max-w-lg leading-relaxed text-muted">
+                Replay a No-Limit Hold&apos;em hand, compare your equity with the price to call, and see how the opponent&apos;s range changes the answer.
               </p>
-            )}
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              <button type="submit" disabled={!draft.trim()} className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-300 disabled:opacity-40">
-                Review hand
-              </button>
-              <span className="text-xs text-muted">PokerStars text format, No-Limit Hold&apos;em cash or tournament.</span>
-            </div>
-          </form>
-
-          <h2 className="mt-12 text-sm font-medium uppercase tracking-wider text-muted">Or try a sample hand</h2>
-          <ul className="mt-3 grid gap-3 sm:grid-cols-2">
-            {SAMPLES.map((s) => (
-              <li key={s.id}>
-                <button onClick={() => load(s.text, `sample:${s.id}`)} className="h-full w-full rounded-xl border border-line bg-panel p-4 text-left transition hover:border-accent/60 hover:bg-panel-2">
-                  <span className="block font-medium">{s.title}</span>
-                  <span className="mt-1 block text-sm text-muted">{s.blurb}</span>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <button onClick={() => load(DEMO.text, `sample:${DEMO.id}`)} className="rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-300">
+                  Review a sample hand <span aria-hidden="true">→</span>
                 </button>
-              </li>
-            ))}
-          </ul>
+                <a href="#import" className="rounded-lg border border-line bg-bg/35 px-4 py-2.5 text-sm font-semibold hover:bg-panel-2">Import your hand</a>
+              </div>
+            </div>
+            <div className="min-w-0 rounded-xl border border-line bg-bg/70 p-4 sm:p-5">
+              <h2 className="font-semibold">{DEMO.title}</h2>
+              <div className="mt-4 flex flex-wrap items-end gap-x-5 gap-y-3">
+                <div>
+                  <p className="mb-1.5 text-xs font-medium text-muted">Hero · BTN</p>
+                  <Cards cards={DEMO_HAND.heroCards} />
+                </div>
+                <div>
+                  <p className="mb-1.5 text-xs font-medium text-muted">River board</p>
+                  <Cards cards={DEMO_HAND.board} />
+                </div>
+              </div>
+              <p className="mt-4 text-sm text-muted">A♥ J♥ flops top pair. When the king lands and the big blind leads for 16bb, is second pair enough to call?</p>
+            </div>
+          </section>
+          <div className="mt-6 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <section id="import" tabIndex={-1} className="jump-target rounded-xl border border-line bg-panel p-5">
+              <h2 className="text-xl font-semibold">Import a hand</h2>
+              <p id="hand-format" className="mt-1 text-sm text-muted">PokerStars text format · No-Limit Hold&apos;em cash or tournament</p>
+              <form className="mt-4" onSubmit={(e) => {
+                e.preventDefault();
+                if (draft.trim()) load(draft, "paste");
+              }}>
+                <label htmlFor="hh" className="text-sm font-medium">Hand history</label>
+                <textarea
+                  id="hh"
+                  aria-describedby="hand-format"
+                  aria-invalid={Boolean(result.error)}
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  spellCheck={false}
+                  placeholder={"PokerStars Hand #123456789: Hold'em No Limit ($0.50/$1.00 USD) ...\nTable 'Alnitak IV' 6-max Seat #4 is the button\nSeat 1: ..."}
+                  className="mt-2 block h-36 w-full resize-y rounded-lg border border-line bg-bg p-3 font-mono text-xs leading-relaxed placeholder:text-muted/65"
+                />
+                {result.error && (
+                  <p role="alert" className="mt-3 rounded-lg border border-rose-400/30 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
+                    {result.error}
+                  </p>
+                )}
+                <button type="submit" disabled={!draft.trim()} className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-emerald-950 hover:bg-emerald-300 disabled:opacity-40">
+                  Review hand
+                </button>
+              </form>
+            </section>
+            <section id="samples" tabIndex={-1} className="jump-target rounded-xl border border-line bg-panel p-5">
+              <h2 className="text-xl font-semibold">Sample hands</h2>
+              <ul className="mt-3 divide-y divide-line">
+                {SAMPLES.map((sample) => (
+                  <li key={sample.id}>
+                    <button onClick={() => load(sample.text, `sample:${sample.id}`)} className="group flex w-full items-center gap-4 rounded-md py-3 text-left hover:bg-panel-2/60">
+                      <span className="flex-1">
+                        <span className="block text-sm font-semibold group-hover:text-accent">{sample.title}</span>
+                        <span className="mt-0.5 block text-xs leading-relaxed text-muted">{sample.blurb}</span>
+                      </span>
+                      <span aria-hidden="true" className="text-accent">→</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
           <SavedHands
             user={user}
             onOpen={(h) => {
@@ -124,7 +190,7 @@ export default function Review() {
             }}
           />
           <Method />
-        </section>
+        </div>
       </Shell>
     );
   }
@@ -133,125 +199,161 @@ export default function Review() {
   const snap = analysis.timeline[Math.min(step, analysis.timeline.length - 1)];
   const { summary, hand } = analysis;
   const lastStep = analysis.timeline.length - 1;
+  const hasRunout = hand.board.length > analysis.timeline[lastStep].board.length || Object.keys(hand.shown).some((player) => player !== hand.hero);
 
   const select = (i: number) => {
     track("decision_viewed", { street: analysis.decisions[i].street, verdict: analysis.decisions[i].verdict });
     setSelected(i);
     setStep(analysis.decisions[i].actionIndex);
+    setShowdown(false);
+  };
+
+  const replayAt = (index: number) => {
+    const next = analysis.timeline[index];
+    if (!next) return;
+    setShowdown(false);
+    if (next.decisionIndex !== null && next.decisionIndex !== selected) select(next.decisionIndex);
+    else setStep(index);
   };
 
   return (
-    <Shell onReset={() => setHandText(null)} account={account}>
+    <Shell
+      onReset={() => {
+        setHandText(null);
+        window.scrollTo({ top: 0 });
+      }}
+      account={account}
+      links={[
+        { href: "#replay", label: "Replay" },
+        { href: "#analysis", label: "Decision analysis" },
+        { href: "#coach", label: "Coach" },
+      ]}
+    >
       {dialog}
-      <div className="mx-auto max-w-7xl px-4 py-5">
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-line bg-panel px-4 py-3">
+      <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6">
+        <section aria-labelledby="workspace-title" className="flex flex-wrap items-center gap-x-7 gap-y-4 rounded-xl border border-line bg-panel px-4 py-4 sm:px-5">
           <div className="flex items-center gap-3">
             <Cards cards={hand.heroCards} size="lg" />
             <div>
-              <div className="font-semibold">
+              <h1 id="workspace-title" ref={workspaceTitle} tabIndex={-1} className="text-xl font-semibold tracking-tight">
                 {summary.heroClass} in {summary.heroPosition}
-              </div>
-              <div className="tabular text-xs text-muted">
+              </h1>
+              <p className="tabular text-xs text-muted">
                 {hand.game} · {hand.players.length}-handed · {num(summary.heroStackBb)}bb deep
-              </div>
+              </p>
             </div>
           </div>
-          <Stat label="Result" value={`${summary.netBb >= 0 ? "+" : ""}${num(summary.netBb)}bb`} tone={summary.netBb >= 0 ? "text-emerald-300" : "text-rose-300"} />
-          <Stat label="EV lost (quantified spots)" value={summary.evLossBb > 0 ? `${num(summary.evLossBb)}bb` : "none"} tone={summary.evLossBb > 0 ? "text-rose-300" : "text-ink"} />
-          <div className="flex items-center gap-2 text-xs">
+          <Stat label="Hand result" value={signedBb(rounded(summary.netBb))} tone={signedTone(rounded(summary.netBb))} />
+          <Stat label="Estimated EV lost" value={`${num(summary.evLossBb)}bb`} tone={summary.evLossBb > 0 ? "text-rose-300" : "text-ink"} />
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
             {(Object.keys(VERDICT) as Verdict[]).map((v) =>
               summary.counts[v] ? (
                 <span key={v} className={`rounded-full border px-2 py-0.5 ${VERDICT[v].chip}`}>
-                  {summary.counts[v]} {VERDICT[v].label.toLowerCase()}
+                  {summary.counts[v]} {v === "inaccuracy" && summary.counts[v] > 1 ? "inaccuracies" : VERDICT[v].label.toLowerCase()}{summary.counts[v] > 1 && v === "mistake" ? "s" : ""}
                 </span>
               ) : null,
             )}
           </div>
-          <div className="ml-auto flex items-end gap-4">
+          <div className="sm:ml-auto">
             <SaveButton key={`${handText}:${profile}:${JSON.stringify(overrides)}`} user={user} analysis={analysis} handText={handText!} profile={profile} overrides={overrides} onNeedAuth={() => setAuthOpen(true)} />
-            <div>
-            <div className="text-[11px] uppercase tracking-wider text-muted">Opponent bluffs</div>
-            <div className="mt-1 inline-flex rounded-lg border border-line bg-bg p-0.5" role="radiogroup" aria-label="Opponent profile">
-              {(Object.keys(PROFILES) as VillainProfile[]).map((p) => (
-                <button
-                  key={p}
-                  role="radio"
-                  aria-checked={profile === p}
-                  title={PROFILES[p].hint}
-                  onClick={() => {
-                    if (p !== profile) track("profile_changed", { profile: p });
-                    setProfile(p);
-                  }}
-                  className={`rounded-md px-2.5 py-1 text-xs transition ${profile === p ? "bg-accent font-semibold text-emerald-950" : "text-muted hover:text-ink"}`}
-                >
-                  {PROFILES[p].label}
-                </button>
-              ))}
-            </div>
-            </div>
           </div>
-        </div>
+        </section>
 
-        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-          <div className="space-y-4">
-            <div className="rounded-xl border border-line bg-panel p-3">
-              <TableView hand={hand} snap={snap} showdown={step === lastStep} />
-              <div className="mt-1 flex items-center gap-2">
-                <button aria-label="Previous action" onClick={() => setStep(Math.max(0, step - 1))} className="rounded-md border border-line px-2.5 py-1 text-sm hover:bg-panel-2">
-                  ‹
-                </button>
-                <input aria-label="Hand progress" type="range" min={0} max={lastStep} value={step} onChange={(e) => setStep(Number(e.target.value))} className="flex-1 accent-emerald-400" />
-                <button aria-label="Next action" onClick={() => setStep(Math.min(lastStep, step + 1))} className="rounded-md border border-line px-2.5 py-1 text-sm hover:bg-panel-2">
-                  ›
-                </button>
+        <div className="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+          <section id="replay" tabIndex={-1} aria-labelledby="replay-title" className="jump-target min-w-0 rounded-xl border border-line bg-panel">
+            <div className="border-b border-line p-4">
+              <h2 id="replay-title" className="text-lg font-semibold">Hand replay</h2>
+              <div className="mt-3 grid grid-cols-4 gap-1.5" aria-label="Jump to street" role="group">
+                {STREETS.map((street) => {
+                  const index = analysis.timeline.findIndex((item, i) => item.street === street && hand.actions[i].type !== "post");
+                  return (
+                    <button key={street} onClick={() => replayAt(index)} disabled={index < 0} aria-pressed={snap.street === street} className={`rounded-md border px-1 py-1.5 text-xs font-medium capitalize disabled:opacity-40 ${snap.street === street ? "border-sky-400/40 bg-sky-400/15 text-sky-200" : "border-line bg-bg text-muted enabled:hover:text-ink"}`}>
+                      {street}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-            <ol className="max-h-[420px] overflow-y-auto rounded-xl border border-line bg-panel p-2 text-sm">
-              {analysis.timeline.map((s, i) => {
-                if (/posts/.test(s.text)) return null;
-                const dec = s.decisionIndex !== null ? analysis.decisions[s.decisionIndex] : null;
-                const newStreet = i === 0 || analysis.timeline[i - 1].street !== s.street || /posts/.test(analysis.timeline[i - 1].text);
-                return (
-                  <li key={i}>
-                    {newStreet && (
-                      <div className="flex items-center gap-2 px-2 pb-1 pt-2 text-[11px] uppercase tracking-wider text-muted">
-                        {s.street} {s.board.length > 0 && <Cards cards={s.board} size="sm" />}
-                      </div>
-                    )}
-                    <button
-                      onClick={() => (dec ? select(dec.index) : setStep(i))}
-                      className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left ${i === step ? "bg-panel-2" : "hover:bg-panel-2/60"} ${dec ? "font-medium" : "text-muted"}`}
-                    >
-                      <span className={`h-2 w-2 shrink-0 rounded-full ${dec ? VERDICT[dec.verdict].dot : "bg-transparent"}`} />
-                      <span className="flex-1">{s.text}</span>
-                      {dec && <span className={`rounded-full border px-2 py-0.5 text-[11px] ${VERDICT[dec.verdict].chip}`}>{dec.title}</span>}
-                    </button>
-                  </li>
-                );
-              })}
-            </ol>
-          </div>
+            <div className="px-3 pb-3">
+              <TableView hand={hand} snap={snap} showdown={showdown} />
+              <div className="flex items-center gap-2">
+                <button aria-label="Previous action" disabled={step === 0} onClick={() => replayAt(step - 1)} className="rounded-md border border-line px-3 py-1 text-sm hover:bg-panel-2 disabled:opacity-35">‹</button>
+                <input aria-label="Hand progress" aria-valuetext={snap.text} type="range" min={0} max={lastStep} value={step} onChange={(e) => replayAt(Number(e.target.value))} className="min-w-0 flex-1 accent-accent" />
+                <button aria-label="Next action" disabled={step === lastStep} onClick={() => replayAt(step + 1)} className="rounded-md border border-line px-3 py-1 text-sm hover:bg-panel-2 disabled:opacity-35">›</button>
+              </div>
+              <p className="mt-2 min-h-5 text-center text-xs text-muted">{snap.text}</p>
+              {step === lastStep && hasRunout && (
+                <button type="button" onClick={() => setShowdown(!showdown)} aria-pressed={showdown} className="mx-auto mt-2 block rounded-md border border-line px-2 py-1 text-xs text-accent hover:bg-panel-2">
+                  Show runout and revealed cards
+                </button>
+              )}
+            </div>
+            <div className="border-t border-line px-3 py-3">
+              <h3 className="px-1 pb-1 text-sm font-semibold">Action history</h3>
+              <ol ref={actionHistory} className="relative max-h-72 overflow-y-auto text-sm">
+                {analysis.timeline.map((snapshot, i) => {
+                  const action = hand.actions[i];
+                  if (action.type === "post") return null;
+                  const dec = snapshot.decisionIndex !== null ? analysis.decisions[snapshot.decisionIndex] : null;
+                  const newStreet = i === 0 || analysis.timeline[i - 1].street !== snapshot.street || hand.actions[i - 1].type === "post";
+                  return (
+                    <li key={i}>
+                      {newStreet && (
+                        <div className="flex items-center gap-2 px-2 pb-1 pt-2 text-xs font-medium capitalize text-muted">
+                          {snapshot.street} {snapshot.board.length > 0 && <Cards cards={snapshot.board} size="sm" />}
+                        </div>
+                      )}
+                      <button
+                        onClick={() => replayAt(i)}
+                        aria-current={i === step ? "step" : undefined}
+                        className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left ${i === step ? "bg-panel-2 text-ink" : "text-muted hover:bg-panel-2/60"}`}
+                      >
+                        <span className={`w-12 shrink-0 rounded px-1 py-0.5 text-center text-[11px] font-medium ${ACTION[action.type].color}`}>{ACTION[action.type].label}</span>
+                        <span className={`min-w-0 flex-1 break-words ${dec ? "font-medium text-ink" : ""}`}>{snapshot.text}</span>
+                        {dec && <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] ${VERDICT[dec.verdict].chip}`}>{VERDICT[dec.verdict].label}</span>}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+          </section>
 
-          <div className="space-y-4">
-            <DecisionPanel
-              key={`${d.index}-${profile}`}
-              d={d}
-              bb={hand.bb}
-              heroClass={summary.heroClass}
-              total={analysis.decisions.length}
-              overrides={overrides}
-              onOverride={(name, text) => {
-                track("range_edited", { reset: !text });
-                setOverrides((o) => {
-                  const next = { ...o };
-                  if (text) next[name] = text;
-                  else delete next[name];
-                  return next;
-                });
-              }}
-              onPrev={d.index > 0 ? () => select(d.index - 1) : undefined}
-              onNext={d.index < analysis.decisions.length - 1 ? () => select(d.index + 1) : undefined}
-            />
+          <div className="min-w-0 space-y-4">
+            <section id="analysis" tabIndex={-1} aria-labelledby="analysis-title" className="jump-target rounded-xl border border-line bg-panel">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
+                <h2 id="analysis-title" className="text-lg font-semibold">Decision analysis</h2>
+                <label className="flex items-center gap-2 text-xs font-medium text-muted">
+                  Opponent bluffs
+                  <select value={profile} onChange={(e) => {
+                    const next = e.target.value as VillainProfile;
+                    track("profile_changed", { profile: next });
+                    setProfile(next);
+                  }} className="rounded-md border border-line bg-bg px-2 py-1.5 text-ink" title={PROFILES[profile].hint}>
+                    {(Object.keys(PROFILES) as VillainProfile[]).map((p) => <option key={p} value={p}>{PROFILES[p].label}</option>)}
+                  </select>
+                </label>
+              </div>
+              <DecisionPanel
+                key={d.index}
+                d={d}
+                bb={hand.bb}
+                heroClass={summary.heroClass}
+                total={analysis.decisions.length}
+                overrides={overrides}
+                onOverride={(name, text) => {
+                  track("range_edited", { reset: !text });
+                  setOverrides((o) => {
+                    const next = { ...o };
+                    if (text) next[name] = text;
+                    else delete next[name];
+                    return next;
+                  });
+                }}
+                onPrev={d.index > 0 ? () => select(d.index - 1) : undefined}
+                onNext={d.index < analysis.decisions.length - 1 ? () => select(d.index + 1) : undefined}
+              />
+            </section>
             <CoachPanel key={handText} handText={handText!} profile={profile} overrides={overrides} />
           </div>
         </div>
@@ -261,26 +363,35 @@ export default function Review() {
   );
 }
 
-function Shell({ children, onReset, account }: { children: React.ReactNode; onReset?: () => void; account?: React.ReactNode }) {
+function Shell({ children, onReset, account, links }: {
+  children: React.ReactNode;
+  onReset?: () => void;
+  account?: React.ReactNode;
+  links: { href: string; label: string }[];
+}) {
   return (
     <div className="min-h-screen">
-      <header className="border-b border-line">
-        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3">
-          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-sm font-black text-emerald-950">♠</span>
-          <span className="font-semibold tracking-tight">PokerLens</span>
-          <span className="hidden text-sm text-muted sm:inline">Poker hand review</span>
-          <div className="ml-auto flex items-center gap-2">
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-panel focus:px-3 focus:py-2">Skip to content</a>
+      <header className="sticky top-0 z-20 border-b border-line bg-bg/95 backdrop-blur">
+        <div className="mx-auto grid max-w-7xl grid-cols-[1fr_auto] items-center gap-x-2 gap-y-2 px-2.5 py-2.5 sm:grid-cols-[auto_1fr_auto] sm:gap-x-4 sm:px-6">
+          <div className="flex shrink-0 items-center gap-2">
+            <Image src="/pokerlens-mark.png" alt="" width={38} height={38} className="size-8 sm:size-[38px]" unoptimized priority />
+            <span className="font-semibold tracking-tight sm:text-lg">Poker<span className="text-accent">Lens</span></span>
+          </div>
+          <nav aria-label="Workspace" className="order-last col-span-2 flex items-center gap-1 border-t border-line pt-1.5 sm:order-none sm:col-span-1 sm:border-0 sm:pt-0">
+            {links.map((link) => <a key={link.href} href={link.href} className="rounded-md px-2.5 py-1.5 text-xs font-medium text-muted hover:bg-panel-2 hover:text-ink sm:text-sm">{link.label}</a>)}
+          </nav>
+          <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
             {onReset && (
-              <button onClick={onReset} className="rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-panel-2">
-                <span className="sm:hidden">New hand</span>
-                <span className="hidden sm:inline">Review another hand</span>
+              <button onClick={onReset} className="rounded-lg border border-line px-2.5 py-1.5 text-sm hover:bg-panel-2">
+                New hand
               </button>
             )}
             {account}
           </div>
         </div>
       </header>
-      <main>{children}</main>
+      <main id="main" tabIndex={-1} className="jump-target">{children}</main>
     </div>
   );
 }
@@ -324,19 +435,20 @@ function DecisionPanel({
           ? `call ${inBb(d.action.added)}`
           : d.action.type;
   const facing = d.toCall > 0 && d.potOdds !== undefined && d.equity !== undefined && d.villains.length > 0;
+  const callEvBb = d.evCall === undefined ? undefined : rounded(d.evCall / bb);
 
   return (
-    <section className="rounded-xl border border-line bg-panel p-4" aria-label="Decision detail">
+    <section className="p-4" aria-label="Selected decision">
       <div className="flex items-start gap-3">
         <div className="flex-1">
           <div className="text-[11px] uppercase tracking-wider text-muted">
             Decision {d.index + 1} of {total} · {d.street}
             {d.inPosition !== null && ` · ${d.inPosition ? "in position" : "out of position"}`}
           </div>
-          <h2 className="mt-1 text-xl font-semibold">
+          <h3 className="mt-1 text-xl font-semibold">
             You {actionText}
             {d.action.allIn ? " (all-in)" : ""}
-          </h2>
+          </h3>
           {d.street !== "preflop" && <p className="text-sm text-muted">Holding {d.handDesc}</p>}
         </div>
         <div className="flex gap-1">
@@ -359,8 +471,8 @@ function DecisionPanel({
         <Tile label="Pot" value={inBb(d.pot)} />
         {d.equity !== undefined && <Tile label={d.street === "preflop" && !d.exact ? "Raw equity" : "Your equity"} value={pct(d.equity)} hint="Against the assumed range below" />}
         {facing && <Tile label={d.exact ? "Equity needed" : "Needed on price alone"} value={pct(d.potOdds!)} hint={`${inBb(d.toCall)} to win ${inBb(d.pot)}`} />}
-        {facing && d.evCall !== undefined && d.exact && <Tile label="EV of calling" value={`${d.evCall >= 0 ? "+" : ""}${inBb(d.evCall)}`} hint="Compared with folding" tone={d.evCall >= 0 ? "text-emerald-300" : "text-rose-300"} />}
-        {facing && d.evCall !== undefined && !d.exact && d.street !== "preflop" && <Tile label="EV if checked down" value={`${d.evCall >= 0 ? "+" : ""}${inBb(d.evCall)}`} hint="Ignores betting on later streets" />}
+        {facing && callEvBb !== undefined && d.exact && <Tile label="EV of calling" value={signedBb(callEvBb)} hint="Compared with folding" tone={signedTone(callEvBb)} />}
+        {facing && callEvBb !== undefined && !d.exact && d.street !== "preflop" && <Tile label="EV if checked down" value={signedBb(callEvBb)} hint="Ignores betting on later streets" tone={signedTone(callEvBb)} />}
         {d.betPct !== undefined && <Tile label="Your size" value={`${pct(d.betPct)} pot`} />}
         {d.breakevenFold !== undefined && d.street !== "preflop" && <Tile label="Bluff break-even" value={pct(d.breakevenFold)} hint="Folds needed for a pure bluff" />}
         {d.spr !== null && <Tile label="SPR" value={num(d.spr)} hint="Effective stack to pot" />}
@@ -433,7 +545,7 @@ function VillainRange({ vill, heroClass, current, onOverride }: { vill: Decision
       <div className="mt-2 flex flex-col gap-3 sm:flex-row">
         <RangeGrid weights={vill.weights} highlight={heroClass} />
         <div className="flex-1 text-xs text-muted">
-          <p>Brighter cells are hands this opponent still holds often after their actions so far. Your hand is outlined.</p>
+          <p>Brighter cells show more remaining combinations. The outline marks your hand.</p>
           {!editing ? (
             <div className="mt-2 flex flex-wrap gap-2">
               <button onClick={() => setEditing(true)} className="rounded-md border border-line px-2.5 py-1 text-ink hover:bg-panel-2">
@@ -482,7 +594,7 @@ function VillainRange({ vill, heroClass, current, onOverride }: { vill: Decision
 function Method() {
   return (
     <details className="mt-10 rounded-xl border border-line bg-panel px-4 py-3 text-sm text-muted">
-      <summary className="cursor-pointer font-medium text-ink">How the numbers are produced, and what they are not</summary>
+      <summary className="cursor-pointer font-medium text-ink">How PokerLens calculates the numbers</summary>
       <ul className="mt-3 list-disc space-y-1.5 pl-5">
         <li>
           <strong className="text-ink">Equity</strong> is Monte Carlo showdown equity against each opponent&apos;s assumed range, with card removal. The same hand always gives the same numbers.

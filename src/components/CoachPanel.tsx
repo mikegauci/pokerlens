@@ -11,13 +11,22 @@ interface Msg {
 
 const SUGGESTIONS = ["What should I have done instead?", "How would this change against a calling station?", "What hands should I be bluffing with here?"];
 
+const SIGNED_NUMBER = /(?<![\p{L}\d$€£.,+\-−–])([+\-−]\s*\d+(?:,\d{3})*(?:\.\d+)?(?:\s?(?:bb\b|%))?)(?![\p{L}\d]|[.,]\d)/giu;
+
+function signedNumbers(text: string) {
+  return text.split(SIGNED_NUMBER).map((part, i) => {
+    if (i % 2 === 0 || Number(part.replace(/[^\d.]/g, "")) === 0) return part;
+    return <span key={i} className={part.startsWith("+") ? "font-semibold text-emerald-300" : "font-semibold text-rose-300"}>{part}</span>;
+  });
+}
+
 /** Minimal Markdown: bold, italics and bullet lines. */
 function Rich({ text }: { text: string }) {
   const inline = (s: string) =>
     s.split(/(\*\*[^*]+\*\*|_[^_]+_)/g).map((part, i) => {
-      if (part.startsWith("**")) return <strong key={i} className="text-ink">{part.slice(2, -2)}</strong>;
-      if (part.startsWith("_") && part.endsWith("_") && part.length > 2) return <em key={i}>{part.slice(1, -1)}</em>;
-      return part;
+      if (part.startsWith("**")) return <strong key={i} className="text-ink">{signedNumbers(part.slice(2, -2))}</strong>;
+      if (part.startsWith("_") && part.endsWith("_") && part.length > 2) return <em key={i}>{signedNumbers(part.slice(1, -1))}</em>;
+      return <span key={i}>{signedNumbers(part)}</span>;
     });
   return (
     <div className="space-y-2">
@@ -86,9 +95,9 @@ export function CoachPanel({ handText, profile, overrides }: { handText: string;
   const canChat = started && !busy && mode === "ai";
 
   return (
-    <section className="rounded-xl border border-line bg-panel p-4" aria-label="Coach">
-      <div className="flex items-center gap-2">
-        <h2 className="font-semibold">Coach</h2>
+    <section id="coach" tabIndex={-1} className="jump-target rounded-xl border border-violet-400/25 bg-panel p-4" aria-labelledby="coach-title">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 id="coach-title" className="text-lg font-semibold text-violet-200">Coach</h2>
         {mode === "fallback" && <span className="rounded-full border border-line px-2 py-0.5 text-[11px] text-muted">built-in summary</span>}
         {started && !busy && (
           <button onClick={() => ask()} className="ml-auto text-xs text-muted underline-offset-2 hover:text-ink hover:underline">
@@ -99,14 +108,14 @@ export function CoachPanel({ handText, profile, overrides }: { handText: string;
 
       {!started && (
         <div className="mt-2">
-          <p className="text-sm text-muted">Get a plain-English review of this hand, based on the numbers above and the opponent assumptions you have set.</p>
+          <p className="text-sm text-muted">Get a plain-English review based on the analysis and your opponent assumptions.</p>
           <button onClick={() => ask()} className="mt-3 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-emerald-950 hover:bg-emerald-300">
             Explain this hand
           </button>
         </div>
       )}
 
-      <div className="mt-3 space-y-3 text-sm leading-relaxed text-ink/90" aria-live="polite">
+      <div className="mt-3 space-y-3 break-words text-sm leading-relaxed text-ink/90" aria-live="polite" aria-busy={busy}>
         {messages.map((m, i) =>
           m.role === "user" ? (
             <p key={i} className="ml-auto w-fit max-w-[85%] rounded-lg bg-panel-2 px-3 py-2">
@@ -156,7 +165,7 @@ export function CoachPanel({ handText, profile, overrides }: { handText: string;
               onChange={(e) => setInput(e.target.value)}
               maxLength={500}
               placeholder="Ask a follow-up about this hand"
-              className="flex-1 rounded-lg border border-line bg-bg px-3 py-2 text-sm placeholder:text-muted/60 focus:border-accent focus:outline-none"
+              className="min-w-0 flex-1 rounded-lg border border-line bg-bg px-3 py-2 text-sm placeholder:text-muted/60 focus:border-accent"
             />
             <button type="submit" disabled={!input.trim()} className="rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-emerald-950 disabled:opacity-40">
               Ask

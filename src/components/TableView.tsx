@@ -14,7 +14,7 @@ export function TableView({ hand, snap, showdown }: { hand: ParsedHand; snap: Sn
 
   return (
     <div className="relative mx-auto mb-6 mt-3 aspect-[5/6] w-full max-w-[620px] sm:aspect-[16/10]">
-      <div className="absolute inset-[9%_6%] rounded-[50%] border-[6px] border-emerald-950 bg-gradient-to-b from-emerald-800 to-emerald-900 shadow-[inset_0_0_60px_rgba(0,0,0,0.45)]" />
+      <div className="replay-felt absolute inset-[9%_6%] rounded-[50%] border-[6px] border-[#243d4b] shadow-[inset_0_0_40px_rgba(0,0,0,0.32),0_8px_24px_rgba(0,0,0,0.25)]" />
       <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2">
         <div className="flex h-8 gap-1 sm:hidden">{board.length ? <Cards cards={board} size="sm" /> : <span className="self-center text-xs uppercase tracking-widest text-emerald-200/60">Preflop</span>}</div>
         <div className="hidden h-11 gap-1 sm:flex">
@@ -35,7 +35,7 @@ export function TableView({ hand, snap, showdown }: { hand: ParsedHand; snap: Sn
         const cards = p.isHero ? hand.heroCards : showdown ? hand.shown[p.name] : undefined;
         return (
           <div key={p.name}>
-            <div className={`absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-0.5 transition-opacity ${out ? "opacity-35" : ""}`} style={{ left: `${x}%`, top: `${y}%` }}>
+            <div className={`absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-0.5 transition-opacity ${out && !p.isHero ? "opacity-35" : ""}`} style={{ left: `${x}%`, top: `${y}%` }}>
               <div className="flex h-8 gap-0.5">
                 {cards ? <Cards cards={cards} size="sm" /> : !out ? (<><PlayingCard card={null} size="sm" /><PlayingCard card={null} size="sm" /></>) : null}
               </div>
