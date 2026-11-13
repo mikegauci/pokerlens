@@ -89,11 +89,19 @@ export function assignPositions(seats: number[], buttonSeat: number): Record<num
 /** Order in which positions act after the flop. */
 export const POSTFLOP_ORDER = ["SB", "BB", "UTG", "UTG+1", "UTG+2", "MP", "LJ", "HJ", "CO", "BTN", "BTN/SB"];
 
+export interface ParseOptions {
+  /**
+   * Accept a hand where hero never acted, such as a walk in the big blind. Single-hand review rejects
+   * these because there is nothing to review, but session stats need them to count hands correctly.
+   */
+  allowNoDecision?: boolean;
+}
+
 /**
  * Parses a PokerStars-format No-Limit Hold'em hand history (cash or tournament).
  * Throws HandParseError with a readable message when the text cannot be used.
  */
-export function parseHand(text: string): ParsedHand {
+export function parseHand(text: string, opts: ParseOptions = {}): ParsedHand {
   const lines = text
     .replace(/\r/g, "")
     .split("\n")
@@ -200,7 +208,7 @@ export function parseHand(text: string): ParsedHand {
     }
   }
 
-  if (!actions.some((a) => a.player === hero && a.type !== "post")) {
+  if (!opts.allowNoDecision && !actions.some((a) => a.player === hero && a.type !== "post")) {
     throw new HandParseError("You didn't make any decisions in this hand, so there is nothing to review.");
   }
 
