@@ -22,6 +22,20 @@ export const REPO_URL = "https://github.com/mikegauci/pokerlens";
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-11-14",
+    title: "Guided tour",
+    pr: 13,
+    roadmap: "Guided tour",
+    href: "/?tour=1",
+    summary: "A step-by-step walkthrough of every feature on its real page, started from the home page.",
+    changes: [
+      "Twelve steps, each highlighting one feature with a sentence on what it does and why it matters for player study or game integrity, and a link to the page.",
+      "Skip or leave at any step, with Escape or the arrow keys; it works at 375px.",
+      "The step lives only in the URL, so the tour remembers nothing after the visit.",
+      "A test fails if a page has no step or a step points at something that is not on its page.",
+    ],
+  },
+  {
+    date: "2026-11-14",
     title: "Production story: error monitoring, health check, changelog and CI",
     pr: 12,
     roadmap: "Production story",

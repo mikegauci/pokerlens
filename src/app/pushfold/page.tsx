@@ -22,7 +22,9 @@ export default function PushFoldPage() {
         <p className="mt-2 max-w-2xl leading-relaxed text-muted">
           With a short stack there is no room to raise and fold, so the decision shrinks to all-in or fold. Pick a stack depth and a seat to see which hands shove and which hands call.
         </p>
-        <PushFoldLab />
+        <div data-tour="pushfold">
+          <PushFoldLab />
+        </div>
         <section id="about-pushfold" tabIndex={-1} aria-labelledby="about-pushfold-title" className="jump-target mt-8 rounded-xl border border-amber-200/25 bg-panel p-4 sm:p-6">
           <h2 id="about-pushfold-title" className="text-lg font-semibold">What push/fold Nash is, and its limits</h2>
           <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted">

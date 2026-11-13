@@ -21,6 +21,10 @@ export const EVENT_NAMES = [
   "session_hand_opened",
   "demo_hand_opened",
   "integrity_player_viewed",
+  "tour_started",
+  "tour_step_viewed",
+  "tour_finished",
+  "tour_left",
 ] as const;
 
 export type EventName = (typeof EVENT_NAMES)[number];

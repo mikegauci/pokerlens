@@ -21,7 +21,7 @@ export default function DemoPage() {
         <p className="mt-2 max-w-2xl leading-relaxed text-muted">
           Each hand teaches one idea. Open it, follow the steps, and say each number as the review shows it. Every number here is computed by the engine for that hand, and a test checks they still match.
         </p>
-        <ol className="mt-7 grid gap-5">
+        <ol className="mt-7 grid gap-5" data-tour="demo-hands">
           {DEMO_HANDS.map((demo, i) => (
             <li key={demo.sampleId} id={demo.sampleId} tabIndex={-1} className="jump-target rounded-xl border border-line bg-panel p-4 sm:p-6">
               <p className="text-xs font-medium uppercase tracking-wide text-accent">Hand {i + 1} · {demo.concept}</p>

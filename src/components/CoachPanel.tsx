@@ -95,7 +95,7 @@ export function CoachPanel({ handText, profile, overrides }: { handText: string;
   const canChat = started && !busy && mode === "ai";
 
   return (
-    <section id="coach" tabIndex={-1} className="jump-target rounded-xl border border-violet-400/25 bg-panel p-4" aria-labelledby="coach-title">
+    <section id="coach" data-tour="coach" tabIndex={-1} className="jump-target rounded-xl border border-violet-400/25 bg-panel p-4" aria-labelledby="coach-title">
       <div className="flex flex-wrap items-center gap-2">
         <h2 id="coach-title" className="text-lg font-semibold text-violet-200">Coach</h2>
         {mode === "fallback" && <span className="rounded-full border border-line px-2 py-0.5 text-[11px] text-muted">built-in summary</span>}

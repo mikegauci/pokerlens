@@ -22,7 +22,9 @@ export default function TrainPage() {
         <p className="mt-2 max-w-2xl leading-relaxed text-muted">
           You get a seat, the action so far and a hand. Pick raise, call or fold, then see the whole range for that spot. Hands you miss come back sooner.
         </p>
-        <RangeTrainer />
+        <div data-tour="trainer">
+          <RangeTrainer />
+        </div>
         <section id="about-charts" tabIndex={-1} aria-labelledby="about-charts-title" className="jump-target mt-8 rounded-xl border border-amber-200/25 bg-panel p-4 sm:p-6">
           <h2 id="about-charts-title" className="text-lg font-semibold">What these charts are, and are not</h2>
           <ul className="mt-2 max-w-3xl list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-muted">

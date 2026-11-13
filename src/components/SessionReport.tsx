@@ -189,7 +189,7 @@ export function SessionReport() {
           Players improve by reviewing sessions, not single hands. Import a whole session from PokerStars, GGPoker or 888poker and see where the EV went, which spots cost the most, and your basic preflop stats with how much they can be trusted.
         </p>
 
-        <section id="import" tabIndex={-1} aria-labelledby="import-title" className="jump-target mt-6 rounded-xl border border-line bg-panel p-4 sm:p-6">
+        <section id="import" data-tour="session-import" tabIndex={-1} aria-labelledby="import-title" className="jump-target mt-6 rounded-xl border border-line bg-panel p-4 sm:p-6">
           <h2 id="import-title" className="text-lg font-semibold">Import a session</h2>
           <p className="mt-1 text-sm text-muted">Paste many hands or upload a hand history file from PokerStars, GGPoker or 888poker (one file can mix sites). Hands that cannot be read are listed with the reason; the rest are still analysed.</p>
           <form

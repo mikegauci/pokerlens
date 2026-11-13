@@ -16,7 +16,9 @@ export const solverSections = [
 export default function SolverPage() {
   return (
     <AppShell links={solverSections}>
-      <SolverLab />
+      <div data-tour="solver">
+        <SolverLab />
+      </div>
     </AppShell>
   );
 }

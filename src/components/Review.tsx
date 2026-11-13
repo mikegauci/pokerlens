@@ -11,6 +11,7 @@ import { AppShell } from "./AppShell";
 import { RangeGrid } from "./RangeGrid";
 import { TableView } from "./TableView";
 import { CoachPanel } from "./CoachPanel";
+import { startTour } from "./Tour";
 import { AccountButton, AuthDialog, SaveButton, SavedHands, useUser } from "./Account";
 import { track } from "@/lib/track";
 
@@ -167,6 +168,9 @@ export default function Review({ initialSample, initialDecisionIndex, source, ba
                   Review a sample hand <span aria-hidden="true">→</span>
                 </button>
                 <a href="#import" className="rounded-lg border border-line bg-bg/35 px-4 py-2.5 text-sm font-semibold hover:bg-panel-2">Import your hand</a>
+                <button type="button" onClick={startTour} className="rounded-lg border border-accent/45 px-4 py-2.5 text-sm font-semibold text-accent hover:bg-panel-2">
+                  Take the guided tour
+                </button>
               </div>
             </div>
             <div className="featured-preview min-w-0 rounded-xl border border-line bg-bg/70 p-4 sm:p-5">
@@ -221,7 +225,7 @@ export default function Review({ initialSample, initialDecisionIndex, source, ba
               ))}
             </ul>
           </section>
-          <section id="import" tabIndex={-1} className="jump-target mt-6 rounded-xl border border-line bg-panel p-5">
+          <section id="import" data-tour="hand-import" tabIndex={-1} className="jump-target mt-6 rounded-xl border border-line bg-panel p-5">
             <h2 className="text-xl font-semibold">Import a hand</h2>
             <p id="hand-format" className="mt-1 text-sm text-muted">PokerStars, GGPoker or 888poker text format · No-Limit Hold&apos;em cash or tournament</p>
             <form className="mt-4" onSubmit={(e) => {
@@ -482,7 +486,7 @@ function DecisionPanel({
     : "";
 
   return (
-    <section className="p-4" aria-label="Selected decision">
+    <section className="p-4" aria-label="Selected decision" data-tour="decision">
       <div className="flex items-start gap-3">
         <div className="flex-1">
           <div className="text-[11px] uppercase tracking-wider text-muted">
@@ -595,7 +599,7 @@ function VillainRange({ vill, heroClass, current, onOverride }: { vill: Decision
   };
 
   return (
-    <div className="mt-4 border-t border-line pt-4">
+    <div className="mt-4 border-t border-line pt-4" data-tour="villain-range">
       <div className="flex flex-wrap items-baseline gap-x-2">
         <h3 className="text-sm font-semibold">
           {vill.name} <span className="font-normal text-muted">({vill.position})</span>
