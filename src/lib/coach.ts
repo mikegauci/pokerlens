@@ -23,7 +23,8 @@ export function buildFacts(a: HandAnalysis, profile: VillainProfile): string {
   lines.push("Action:");
   for (const s of a.timeline) if (!/posts/.test(s.text)) lines.push(`- [${s.street}] ${s.text}`);
   lines.push("");
-  lines.push("Hero decisions (all numbers are computed, use them as given):");
+  const flagged = a.decisions.filter((d) => d.verdict === "mistake" || d.verdict === "inaccuracy").length;
+  lines.push(`Hero decisions (all numbers are computed, use them as given): ${a.decisions.length}, of which ${flagged} flagged as a mistake or inaccuracy.`);
   a.decisions.forEach((d: Decision, i) => {
     const parts = [
       `#${i + 1} ${d.street}${d.board.length ? ` (${cardsStr(d.board)})` : ""}: hero ${d.action.type}${d.action.added ? ` ${inBb(d.action.added)}` : ""}`,
@@ -65,6 +66,16 @@ Format for the first review: plain text with short Markdown.
 3. "**Street by street**": one or two sentences per decision that matters. Skip routine ones.
 4. "**Takeaway**": one concrete habit or study drill.
 Keep it under 220 words. For follow-up questions, answer in under 120 words.`;
+
+/** The model request behind `/api/coach`, shared with the live coach evaluation so both send the same prompt. */
+export function coachRequest(facts: string, messages: { role: "user" | "assistant"; content: string }[] = []) {
+  return {
+    model: process.env.OPENAI_MODEL || "gpt-5.5",
+    instructions: COACH_INSTRUCTIONS,
+    input: [{ role: "user" as const, content: `Fact sheet for the hand:\n\n${facts}\n\nReview this hand.` }, ...messages],
+    max_output_tokens: 900,
+  };
+}
 
 /** Used when no API key is configured, so the app still explains itself. */
 export function fallbackExplanation(a: HandAnalysis): string {
