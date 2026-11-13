@@ -48,7 +48,7 @@ One roadmap item per chat, one pull request per item.
 - [x] **Preflop range trainer.** Drill "position and hand, what do you do?" against the charts in `src/lib/poker/charts.ts`, with spaced repetition on missed hands and a per-position accuracy record. This is how players study ranges.
 - [x] **Push/fold Nash for short stacks.** Exact shove and call ranges by stack depth and position. Use it for tournament hands under about 15bb, which are currently judged with 100bb cash charts.
 - [x] **Session import and leak report.** Upload many hands at once; report EV lost by spot type and basic stats (VPIP, PFR, 3-bet). Players review sessions, not single hands.
-- [ ] **Metrics page.** Read the `events` table and show the funnel: hand analysed, range edited, coach requested, hand saved. The table is write-only for clients today, so this needs a server-side read.
+- [x] **Metrics page.** Read the `events` table and show the funnel: hand analysed, range edited, coach requested, hand saved. The table is write-only for clients today, so this needs a server-side read.
 - [ ] **Coach evaluations.** An automated check that coach output never states a number that is missing from the fact sheet, run over the sample hands.
 - [ ] **Three demo hands.** Pick three hands the author can explain aloud without notes, and add a short written walkthrough of each.
 
