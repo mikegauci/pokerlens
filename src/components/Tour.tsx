@@ -41,6 +41,8 @@ export function Tour() {
   /** What was found for one step on one page; stale results from an earlier step are ignored. */
   const [found, setFound] = useState<{ key: string; rect: Rect | null; missing: boolean }>({ key: "", rect: null, missing: false });
   const heading = useRef<HTMLHeadingElement>(null);
+  /** True until the first step on this page has been lined up; a fresh page load jumps there without animating. */
+  const firstOnPage = useRef(true);
 
   const go = useCallback(
     (next: number) => {
@@ -102,13 +104,16 @@ export function Tour() {
       if (!el && Date.now() - started < FIND_TIMEOUT_MS) return;
       window.clearInterval(timer);
       if (!el) return setFound({ key, rect: null, missing: true });
-      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      // Animate only when moving between steps on the same page. On a fresh load the page is still settling,
+      // and a smooth scroll that is still running when the page changes height can end up in the wrong place.
+      const animate = !firstOnPage.current && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      firstOnPage.current = false;
       const scrollToEl = (behavior: ScrollBehavior) => {
         if (!el) return;
         const header = document.querySelector("header")?.getBoundingClientRect().height ?? 64;
         window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - header - GAP), behavior });
       };
-      scrollToEl(reduce ? "auto" : "smooth");
+      scrollToEl(animate ? "smooth" : "auto");
       settles = SETTLE_MS.map((ms) => window.setTimeout(() => !userScrolled && scrollToEl("auto"), ms));
       measure();
       observer = new ResizeObserver(onMove);
