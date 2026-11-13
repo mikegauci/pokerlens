@@ -183,7 +183,10 @@ export default function Review({ initialSample, initialDecisionIndex, source, ba
             </div>
           </section>
           <section id="samples" tabIndex={-1} className="jump-target mt-7" aria-labelledby="samples-title">
-            <h2 id="samples-title" className="text-xl font-semibold">Sample hands</h2>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 id="samples-title" className="text-xl font-semibold">Sample hands</h2>
+              <Link href="/demo" className="text-sm font-medium text-accent underline-offset-4 hover:underline">Three demo hands, with walkthroughs <span aria-hidden="true">→</span></Link>
+            </div>
             <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {SAMPLE_PREVIEWS.map((sample) => (
                 <li key={sample.id} className="min-w-0">
