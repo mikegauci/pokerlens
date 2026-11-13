@@ -22,8 +22,16 @@ export const MIN_OPPORTUNITIES = 30;
 
 // ---------------------------------------------------------------- splitting
 
-/** A hand starts on a line like "PokerStars Hand #123:" or "PokerStars Zoom Hand #123:". */
-const HAND_START = /^﻿?[A-Za-z][\w .'-]*? Hand #\d+:/;
+/**
+ * A hand starts on a line like "PokerStars Hand #123:", "PokerStars Zoom Hand #123:" or GGPoker's "Poker Hand #RC123:".
+ * An 888poker hand starts on "#Game No : 123", or on its "***** 888poker Hand History for Game 123 *****" line when
+ * that comes first.
+ */
+const HAND_START = /^﻿?(?:[A-Za-z][\w .'-]*? Hand #[A-Z]*\d+:|#Game No\s*:|\*{5} .+? Hand History for Game \d+)/i;
+const GAME_NO = /^﻿?#Game No\s*:/i;
+
+/** Hand id from any supported header, used to report failures and skip duplicates. */
+const handIdOf = (block: string) => block.match(/Hand #([A-Z]*\d+)/i)?.[1] ?? block.match(/Hand History for Game (\d+)/i)?.[1] ?? block.match(/#Game No\s*:\s*(\d+)/i)?.[1] ?? null;
 
 /**
  * Splits a session file into one text block per hand. Any text before the first hand header is
@@ -34,7 +42,9 @@ export function splitSession(text: string): string[] {
   const blocks: string[][] = [];
   let current: string[] = [];
   for (const line of lines) {
-    if (HAND_START.test(line.trim()) && current.some((l) => l.trim())) {
+    // An 888 header line right after "#Game No" belongs to the same hand.
+    const afterGameNo = GAME_NO.test(current.filter((l) => l.trim()).at(-1)?.trim() ?? "");
+    if (HAND_START.test(line.trim()) && !afterGameNo && current.some((l) => l.trim())) {
       blocks.push(current);
       current = [];
     }
@@ -75,7 +85,7 @@ export function importSession(text: string): ImportResult {
   const seen = new Map<string, number>();
   blocks.forEach((block, i) => {
     const position = i + 1;
-    const handId = block.match(/Hand #(\d+)/i)?.[1] ?? null;
+    const handId = handIdOf(block);
     if (!HAND_START.test(block.split("\n")[0])) {
       failed.push({ position, handId, reason: "Text before the first hand header, or a block that does not start with one." });
       return;
