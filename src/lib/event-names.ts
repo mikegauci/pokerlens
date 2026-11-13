@@ -19,6 +19,7 @@ export const EVENT_NAMES = [
   "session_imported",
   "session_analyzed",
   "session_hand_opened",
+  "integrity_player_viewed",
 ] as const;
 
 export type EventName = (typeof EVENT_NAMES)[number];
