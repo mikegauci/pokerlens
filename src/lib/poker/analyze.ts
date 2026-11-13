@@ -11,6 +11,9 @@ import {
   THREE_BET_TEXT,
   chart,
   chartPos,
+  facingOpenCharts,
+  facingThreeBetCharts,
+  firstInCharts,
   openerGroup,
 } from "./charts";
 import { equityVsRanges } from "./equity";
@@ -222,19 +225,16 @@ export function analyzeHand(hand: ParsedHand, opts: AnalysisOptions = {}): HandA
         callText = OVERLIMP;
       } else {
         situation = `${pos} first in (open-raise or fold)`;
-        raiseText = RFI_TEXT[chartPos(pos)];
+        ({ raiseText, callText } = firstInCharts(pos));
       }
     } else if (raises === 1) {
       const opener = posOf[firstRaiser!];
-      const g = openerGroup(opener);
       situation = `${pos} facing a ${opener} open`;
-      raiseText = THREE_BET_TEXT[g];
-      callText = pos === "BB" ? BB_DEFEND_TEXT[g] : CALL_OPEN_TEXT[g];
+      ({ raiseText, callText } = facingOpenCharts(pos, opener));
     } else if (raises === 2) {
       if (heroRole === "open") {
         situation = `${pos} opened and faces a 3-bet`;
-        raiseText = FOUR_BET_TEXT;
-        callText = CALL_THREE_BET_TEXT;
+        ({ raiseText, callText } = facingThreeBetCharts());
       } else {
         situation = `${pos} cold, facing an open and a 3-bet`;
         raiseText = FIVE_BET_TEXT;
