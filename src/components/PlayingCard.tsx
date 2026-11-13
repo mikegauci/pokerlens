@@ -22,12 +22,12 @@ export function PlayingCard({ card, size = "md" }: { card: Card | null; size?: "
   );
 }
 
-export function Cards({ cards, size }: { cards: Card[]; size?: "sm" | "md" | "lg" }) {
+export function Cards({ cards, size, deal = false }: { cards: Card[]; size?: "sm" | "md" | "lg"; deal?: boolean }) {
   return (
     <span className="inline-flex gap-1">
-      {cards.map((c) => (
-        <PlayingCard key={c} card={c} size={size} />
-      ))}
+      {cards.map((c) => deal ? (
+        <span key={c} className="deal-card inline-flex"><PlayingCard card={c} size={size} /></span>
+      ) : <PlayingCard key={c} card={c} size={size} />)}
     </span>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Decision, HandAnalysis, PROFILES, Verdict, VillainProfile, analyzeHand } from "@/lib/poker/analyze";
 import { ActionType, parseHand } from "@/lib/poker/parser";
@@ -20,9 +21,13 @@ const VERDICT: Record<Verdict, { label: string; chip: string; dot: string }> = {
   mistake: { label: "Mistake", chip: "bg-rose-400/15 text-rose-300 border-rose-400/30", dot: "bg-rose-400" },
 };
 
-const DEMO = SAMPLES[0];
-const DEMO_HAND = parseHand(DEMO.text);
 const STREETS = ["preflop", "flop", "turn", "river"] as const;
+const SAMPLE_PREVIEWS = SAMPLES.map((sample) => {
+  const hand = parseHand(sample.text);
+  const street = STREETS.indexOf(sample.previewStreet);
+  return { ...sample, heroCards: hand.heroCards, board: hand.board.slice(0, street === 0 ? 0 : street + 2) };
+});
+const DEMO = SAMPLE_PREVIEWS[0];
 const ACTION: Record<ActionType, { label: string; color: string }> = {
   post: { label: "Post", color: "bg-panel-2 text-muted" },
   fold: { label: "Fold", color: "bg-slate-400/15 text-slate-300" },
@@ -82,6 +87,13 @@ export default function Review() {
     setSelected(first);
   };
 
+  const goHome = () => {
+    setHandText(null);
+    setAuthOpen(false);
+    if (window.location.hash) window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
+    window.scrollTo({ top: 0, behavior: "instant" });
+  };
+
   const analysis = result.analysis;
   const hasAnalysis = Boolean(analysis);
   useEffect(() => {
@@ -101,14 +113,14 @@ export default function Review() {
 
   if (!analysis) {
     return (
-      <Shell account={account} links={[
+      <Shell onHome={goHome} account={account} links={[
         { href: "#import", label: "Import" },
         { href: "#samples", label: "Sample hands" },
         ...(user ? [{ href: "#saved-hands", label: "Saved hands" }] : []),
       ]}>
         {dialog}
         <div className="mx-auto max-w-7xl px-4 pb-12 pt-6 sm:px-6 sm:pt-9">
-          <section className="review-hero grid items-center gap-7 rounded-2xl border border-line p-6 sm:p-9 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)]">
+          <section className="review-hero panel-enter grid items-center gap-7 rounded-2xl border border-line p-6 sm:p-9 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.7fr)]">
             <div>
               <h1 className="max-w-xl text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">Review your toughest poker decisions</h1>
               <p className="mt-3 max-w-lg leading-relaxed text-muted">
@@ -121,67 +133,83 @@ export default function Review() {
                 <a href="#import" className="rounded-lg border border-line bg-bg/35 px-4 py-2.5 text-sm font-semibold hover:bg-panel-2">Import your hand</a>
               </div>
             </div>
-            <div className="min-w-0 rounded-xl border border-line bg-bg/70 p-4 sm:p-5">
+            <div className="featured-preview min-w-0 rounded-xl border border-line bg-bg/70 p-4 sm:p-5">
               <h2 className="font-semibold">{DEMO.title}</h2>
               <div className="mt-4 flex flex-wrap items-end gap-x-5 gap-y-3">
                 <div>
                   <p className="mb-1.5 text-xs font-medium text-muted">Hero · BTN</p>
-                  <Cards cards={DEMO_HAND.heroCards} />
+                  <Cards cards={DEMO.heroCards} />
                 </div>
                 <div>
                   <p className="mb-1.5 text-xs font-medium text-muted">River board</p>
-                  <Cards cards={DEMO_HAND.board} />
+                  <Cards cards={DEMO.board} />
                 </div>
               </div>
               <p className="mt-4 text-sm text-muted">A♥ J♥ flops top pair. When the king lands and the big blind leads for 16bb, is second pair enough to call?</p>
             </div>
           </section>
-          <div className="mt-6 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-            <section id="import" tabIndex={-1} className="jump-target rounded-xl border border-line bg-panel p-5">
-              <h2 className="text-xl font-semibold">Import a hand</h2>
-              <p id="hand-format" className="mt-1 text-sm text-muted">PokerStars text format · No-Limit Hold&apos;em cash or tournament</p>
-              <form className="mt-4" onSubmit={(e) => {
-                e.preventDefault();
-                if (draft.trim()) load(draft, "paste");
-              }}>
-                <label htmlFor="hh" className="text-sm font-medium">Hand history</label>
-                <textarea
-                  id="hh"
-                  aria-describedby="hand-format"
-                  aria-invalid={Boolean(result.error)}
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  spellCheck={false}
-                  placeholder={"PokerStars Hand #123456789: Hold'em No Limit ($0.50/$1.00 USD) ...\nTable 'Alnitak IV' 6-max Seat #4 is the button\nSeat 1: ..."}
-                  className="mt-2 block h-36 w-full resize-y rounded-lg border border-line bg-bg p-3 font-mono text-xs leading-relaxed placeholder:text-muted/65"
-                />
-                {result.error && (
-                  <p role="alert" className="mt-3 rounded-lg border border-rose-400/30 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
-                    {result.error}
-                  </p>
-                )}
-                <button type="submit" disabled={!draft.trim()} className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-emerald-950 hover:bg-emerald-300 disabled:opacity-40">
-                  Review hand
-                </button>
-              </form>
-            </section>
-            <section id="samples" tabIndex={-1} className="jump-target rounded-xl border border-line bg-panel p-5">
-              <h2 className="text-xl font-semibold">Sample hands</h2>
-              <ul className="mt-3 divide-y divide-line">
-                {SAMPLES.map((sample) => (
-                  <li key={sample.id}>
-                    <button onClick={() => load(sample.text, `sample:${sample.id}`)} className="group flex w-full items-center gap-4 rounded-md py-3 text-left hover:bg-panel-2/60">
-                      <span className="flex-1">
-                        <span className="block text-sm font-semibold group-hover:text-accent">{sample.title}</span>
-                        <span className="mt-0.5 block text-xs leading-relaxed text-muted">{sample.blurb}</span>
+          <section id="samples" tabIndex={-1} className="jump-target mt-7" aria-labelledby="samples-title">
+            <h2 id="samples-title" className="text-xl font-semibold">Sample hands</h2>
+            <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {SAMPLE_PREVIEWS.map((sample) => (
+                <li key={sample.id} className="min-w-0">
+                  <button
+                    onClick={() => load(sample.text, `sample:${sample.id}`)}
+                    className="sample-card group flex h-full w-full flex-col gap-3 rounded-xl border border-line bg-panel p-3 text-left hover:border-accent/45 focus-visible:border-accent/45"
+                  >
+                    <span className="sample-felt flex min-h-24 w-full flex-wrap items-end gap-x-3 gap-y-2 rounded-lg border border-accent/15 p-2.5">
+                      <span className="flex flex-col gap-1">
+                        <span className="text-[10px] font-medium text-emerald-100/80">Hero</span>
+                        <span className="sample-holding inline-flex"><Cards cards={sample.heroCards} size="sm" /></span>
                       </span>
-                      <span aria-hidden="true" className="text-accent">→</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          </div>
+                      <span className="flex flex-col gap-1">
+                        <span className="text-[10px] font-medium capitalize text-emerald-100/80">{sample.previewStreet}</span>
+                        {sample.board.length ? <Cards cards={sample.board} size="sm" /> : (
+                          <span className="flex h-8 items-center gap-1.5 text-xs text-emerald-100/80">
+                            <span aria-hidden="true" className="h-3 w-3 rounded-full border-2 border-dashed border-amber-200" />
+                            Facing a raise
+                          </span>
+                        )}
+                      </span>
+                    </span>
+                    <span className="flex w-full items-baseline justify-between gap-2 px-0.5">
+                      <span className="text-sm font-semibold group-hover:text-accent group-focus-visible:text-accent">{sample.title}</span>
+                      <span aria-hidden="true" className="sample-arrow shrink-0 text-accent">→</span>
+                    </span>
+                    <span className="-mt-2 px-0.5 pb-1 text-xs leading-relaxed text-muted">{sample.blurb}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+          <section id="import" tabIndex={-1} className="jump-target mt-6 rounded-xl border border-line bg-panel p-5">
+            <h2 className="text-xl font-semibold">Import a hand</h2>
+            <p id="hand-format" className="mt-1 text-sm text-muted">PokerStars text format · No-Limit Hold&apos;em cash or tournament</p>
+            <form className="mt-4" onSubmit={(e) => {
+              e.preventDefault();
+              if (draft.trim()) load(draft, "paste");
+            }}>
+              <label htmlFor="hh" className="text-sm font-medium">Hand history</label>
+              <textarea
+                id="hh"
+                aria-describedby="hand-format"
+                aria-invalid={Boolean(result.error)}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                spellCheck={false}
+                placeholder={"PokerStars Hand #123456789: Hold'em No Limit ($0.50/$1.00 USD) ...\nTable 'Alnitak IV' 6-max Seat #4 is the button\nSeat 1: ..."}
+                className="mt-2 block h-36 w-full resize-y rounded-lg border border-line bg-bg p-3 font-mono text-xs leading-relaxed placeholder:text-muted/65"
+              />
+              {result.error && (
+                <p role="alert" className="mt-3 rounded-lg border border-rose-400/30 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
+                  {result.error}
+                </p>
+              )}
+              <button type="submit" disabled={!draft.trim()} className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-emerald-950 hover:bg-emerald-300 disabled:opacity-40">
+                Review hand
+              </button>
+            </form>
+          </section>
           <SavedHands
             user={user}
             onOpen={(h) => {
@@ -218,10 +246,8 @@ export default function Review() {
 
   return (
     <Shell
-      onReset={() => {
-        setHandText(null);
-        window.scrollTo({ top: 0 });
-      }}
+      onHome={goHome}
+      reviewing
       account={account}
       links={[
         { href: "#replay", label: "Replay" },
@@ -230,7 +256,7 @@ export default function Review() {
       ]}
     >
       {dialog}
-      <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6">
+      <div className="panel-enter mx-auto max-w-7xl px-4 py-5 sm:px-6">
         <section aria-labelledby="workspace-title" className="flex flex-wrap items-center gap-x-7 gap-y-4 rounded-xl border border-line bg-panel px-4 py-4 sm:px-5">
           <div className="flex items-center gap-3">
             <Cards cards={hand.heroCards} size="lg" />
@@ -363,9 +389,10 @@ export default function Review() {
   );
 }
 
-function Shell({ children, onReset, account, links }: {
+function Shell({ children, onHome, reviewing = false, account, links }: {
   children: React.ReactNode;
-  onReset?: () => void;
+  onHome: () => void;
+  reviewing?: boolean;
   account?: React.ReactNode;
   links: { href: string; label: string }[];
 }) {
@@ -374,16 +401,19 @@ function Shell({ children, onReset, account, links }: {
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-panel focus:px-3 focus:py-2">Skip to content</a>
       <header className="sticky top-0 z-20 border-b border-line bg-bg/95 backdrop-blur">
         <div className="mx-auto grid max-w-7xl grid-cols-[1fr_auto] items-center gap-x-2 gap-y-2 px-2.5 py-2.5 sm:grid-cols-[auto_1fr_auto] sm:gap-x-4 sm:px-6">
-          <div className="flex shrink-0 items-center gap-2">
+          <Link href="/" aria-label="PokerLens home" onNavigate={(event) => {
+            event.preventDefault();
+            onHome();
+          }} className="brand-link flex w-fit shrink-0 items-center gap-2 rounded-md">
             <Image src="/pokerlens-mark.png" alt="" width={38} height={38} className="size-8 sm:size-[38px]" unoptimized priority />
             <span className="font-semibold tracking-tight sm:text-lg">Poker<span className="text-accent">Lens</span></span>
-          </div>
+          </Link>
           <nav aria-label="Workspace" className="order-last col-span-2 flex items-center gap-1 border-t border-line pt-1.5 sm:order-none sm:col-span-1 sm:border-0 sm:pt-0">
             {links.map((link) => <a key={link.href} href={link.href} className="rounded-md px-2.5 py-1.5 text-xs font-medium text-muted hover:bg-panel-2 hover:text-ink sm:text-sm">{link.label}</a>)}
           </nav>
           <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
-            {onReset && (
-              <button onClick={onReset} className="rounded-lg border border-line px-2.5 py-1.5 text-sm hover:bg-panel-2">
+            {reviewing && (
+              <button onClick={onHome} className="rounded-lg border border-line px-2.5 py-1.5 text-sm hover:bg-panel-2">
                 New hand
               </button>
             )}
@@ -481,7 +511,7 @@ function DecisionPanel({
       {facing && (d.exact || d.street !== "preflop") && (
         <div className="mt-4" aria-hidden>
           <div className="relative h-3 rounded-full bg-panel-2">
-            <div className={`absolute inset-y-0 left-0 rounded-full ${!d.exact ? "bg-sky-400" : d.equity! >= d.potOdds! ? "bg-emerald-400" : "bg-rose-400"}`} style={{ width: `${d.equity! * 100}%` }} />
+            <div className={`equity-fill absolute inset-y-0 left-0 rounded-full ${!d.exact ? "bg-sky-400" : d.equity! >= d.potOdds! ? "bg-emerald-400" : "bg-rose-400"}`} style={{ width: `${d.equity! * 100}%` }} />
             <div className="absolute -inset-y-1 w-0.5 bg-amber-200" style={{ left: `${d.potOdds! * 100}%` }} />
           </div>
           <div className="mt-1 flex justify-between text-[11px] text-muted">

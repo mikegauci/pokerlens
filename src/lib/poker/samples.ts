@@ -1,7 +1,10 @@
+import type { Street } from "./parser";
+
 export interface SampleHand {
   id: string;
   title: string;
   blurb: string;
+  previewStreet: Street;
   text: string;
 }
 
@@ -9,6 +12,7 @@ export const SAMPLES: SampleHand[] = [
   {
     id: "river-lead",
     title: "Second pair facing a river lead",
+    previewStreet: "river",
     blurb: "AJs on the button. Villain check-calls twice, then leads the river when a king falls. Try the opponent profiles on this one.",
     text: `PokerStars Hand #250000000001:  Hold'em No Limit ($0.50/$1.00 USD) - 2026/11/02 20:14:33 ET
 Table 'Alnitak IV' 6-max Seat #4 is the button
@@ -48,6 +52,7 @@ Board [Js 8d 3c 5h Kd]`,
   {
     id: "kjo-3bet-pot",
     title: "KJo calls a 3-bet and stacks off",
+    previewStreet: "preflop",
     blurb: "A cutoff open gets 3-bet by the button. Top pair looks strong, but the trouble started preflop.",
     text: `PokerStars Hand #250000000002:  Hold'em No Limit ($0.50/$1.00 USD) - 2026/11/03 21:02:10 ET
 Table 'Mimosa II' 6-max Seat #5 is the button
@@ -91,6 +96,7 @@ Board [Kh 7s 2d 9c 4s]`,
   {
     id: "flush-draw-price",
     title: "Flush draw facing a big turn bet",
+    previewStreet: "turn",
     blurb: "76 of hearts defends the big blind, flops a flush draw and has to decide whether the turn price is right.",
     text: `PokerStars Hand #250000000003:  Hold'em No Limit ($0.50/$1.00 USD) - 2026/11/04 19:45:51 ET
 Table 'Castor III' 6-max Seat #2 is the button
@@ -131,6 +137,7 @@ Board [Kh 9h 2c 3s 2d]`,
   {
     id: "missed-value",
     title: "Middle set checks back the river",
+    previewStreet: "river",
     blurb: "Pocket nines flop a set against the big blind, bet twice, then check back a blank river.",
     text: `PokerStars Hand #250000000004:  Hold'em No Limit ($0.50/$1.00 USD) - 2026/11/05 22:31:07 ET
 Table 'Deneb V' 6-max Seat #3 is the button
@@ -172,6 +179,7 @@ Board [9h 6s 2d Kc 3h]`,
   {
     id: "jj-vs-jam",
     title: "Jacks call a 4-bet shove",
+    previewStreet: "preflop",
     blurb: "JJ 3-bets from the small blind and the cutoff moves all-in. An all-in call is pure maths: equity against price.",
     text: `PokerStars Hand #250000000005:  Hold'em No Limit ($0.50/$1.00 USD) - 2026/11/06 20:58:40 ET
 Table 'Electra VI' 6-max Seat #3 is the button
@@ -207,6 +215,7 @@ Board [Td 6c 2s 5h Ac]`,
   {
     id: "mtt-short-stack",
     title: "Tournament: KQs facing a 12bb shove",
+    previewStreet: "preflop",
     blurb: "The chart range for the shover is too tight for a short stack. Edit the villain range and watch the verdict change.",
     text: `PokerStars Hand #250000000006: Tournament #3999000111, $10+$1 USD Hold'em No Limit - Level XII (400/800) - 2026/11/08 21:40:12 ET
 Table '3999000111 14' 9-max Seat #5 is the button

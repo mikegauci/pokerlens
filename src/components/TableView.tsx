@@ -16,9 +16,9 @@ export function TableView({ hand, snap, showdown }: { hand: ParsedHand; snap: Sn
     <div className="relative mx-auto mb-6 mt-3 aspect-[5/6] w-full max-w-[620px] sm:aspect-[16/10]">
       <div className="replay-felt absolute inset-[9%_6%] rounded-[50%] border-[6px] border-[#243d4b] shadow-[inset_0_0_40px_rgba(0,0,0,0.32),0_8px_24px_rgba(0,0,0,0.25)]" />
       <div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2">
-        <div className="flex h-8 gap-1 sm:hidden">{board.length ? <Cards cards={board} size="sm" /> : <span className="self-center text-xs uppercase tracking-widest text-emerald-200/60">Preflop</span>}</div>
+        <div className="flex h-8 gap-1 sm:hidden">{board.length ? <Cards cards={board} size="sm" deal /> : <span className="self-center text-xs uppercase tracking-widest text-emerald-200/60">Preflop</span>}</div>
         <div className="hidden h-11 gap-1 sm:flex">
-          {board.length ? <Cards cards={board} /> : <span className="self-center text-xs uppercase tracking-widest text-emerald-200/60">Preflop</span>}
+          {board.length ? <Cards cards={board} deal /> : <span className="self-center text-xs uppercase tracking-widest text-emerald-200/60">Preflop</span>}
         </div>
         <div className="tabular rounded-full bg-black/35 px-3 py-0.5 text-xs font-medium text-emerald-50">Pot {fmt(snap.pot / bb)}bb</div>
       </div>
