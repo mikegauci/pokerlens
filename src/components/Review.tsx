@@ -161,7 +161,7 @@ export default function Review({ initialSample, initialDecisionIndex, source, ba
             <div>
               <h1 className="max-w-xl text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">Review your toughest poker decisions</h1>
               <p className="mt-3 max-w-lg leading-relaxed text-muted">
-                Replay a No-Limit Hold&apos;em hand, compare your equity with the price to call, and see how the opponent&apos;s range changes the answer.
+                PokerLens is a No-Limit Hold&apos;em study tool. Paste a hand and it works out equity, pot odds and EV for every decision, then an AI coach explains the numbers in plain English.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <button onClick={() => load(DEMO.text, `sample:${DEMO.id}`)} className="rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-300">
