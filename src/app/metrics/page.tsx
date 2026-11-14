@@ -27,7 +27,7 @@ export default function MetricsPage({ searchParams }: PageProps<"/metrics">) {
   return (
     <AppShell links={sections}>
       <div className="mx-auto max-w-5xl px-4 pb-14 pt-6 sm:px-6 sm:pt-9">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Usage metrics</h1>
+        <h1 data-tour="metrics" className="text-3xl font-semibold tracking-tight sm:text-4xl">Usage metrics</h1>
         <p className="mt-2 max-w-2xl leading-relaxed text-muted">
           What anonymous visitors do with the hand review, counted from the events the app records. Private: this page is behind a password and is not linked from the app.
         </p>

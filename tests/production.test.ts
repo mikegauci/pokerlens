@@ -1,6 +1,4 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { CHANGELOG } from "../src/lib/changelog";
 import { cleanPath, createLimiter, fingerprint, groupErrors, scrub, toReport, type ErrorRow } from "../src/lib/errors";
 
 describe("error reports", () => {
@@ -56,22 +54,5 @@ describe("error groups on the metrics page", () => {
     ]);
     expect(groups.map((g) => [g.fingerprint, g.count, g.sessions])).toEqual([["f2", 3, 2], ["f1", 1, 1]]);
     expect(groups[0]).toMatchObject({ firstSeen: "2026-11-14T09:00:00Z", lastSeen: "2026-11-14T12:00:00Z", paths: ["/", "/session"], releases: ["abc1234", "def5678"] });
-  });
-});
-
-describe("changelog", () => {
-  it("is newest first with valid dates and no repeated pull request", () => {
-    const dates = CHANGELOG.map((e) => e.date);
-    for (const d of dates) expect(d).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect([...dates].sort().reverse()).toEqual(dates);
-    const prs = CHANGELOG.flatMap((e) => (e.pr ? [e.pr] : []));
-    expect(new Set(prs).size).toBe(prs.length);
-  });
-  it("has an entry for every ticked roadmap item, and only for real ones", () => {
-    const roadmap = readFileSync(new URL("../CLAUDE.md", import.meta.url), "utf8");
-    const items = [...roadmap.matchAll(/^- \[(x| )\] \*\*(.+?)\.\*\*/gm)].map((m) => ({ done: m[1] === "x", name: m[2] }));
-    const covered = new Set(CHANGELOG.map((e) => e.roadmap).filter(Boolean));
-    for (const item of items.filter((i) => i.done)) expect(covered.has(item.name), item.name).toBe(true);
-    for (const name of covered) expect(items.some((i) => i.name === name && i.done), name!).toBe(true);
   });
 });

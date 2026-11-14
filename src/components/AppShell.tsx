@@ -61,7 +61,6 @@ export function AppShell({ children, onHome, reviewing = false, learning = false
       <footer className="border-t border-line">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-4 text-xs text-muted sm:px-6">
           <span>Release <code className="font-mono">{RELEASE}</code></span>
-          <Link href="/changelog" className="hover:text-ink">Changelog</Link>
           <Link href="/demo" className="hover:text-ink">Demo hands</Link>
         </div>
       </footer>
