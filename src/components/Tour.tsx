@@ -180,7 +180,6 @@ export function Tour() {
         <div className="mt-2 min-h-0 overflow-y-auto">
           <h2 id="tour-title" ref={heading} tabIndex={-1} className="text-base font-semibold outline-none sm:text-lg">{step.title}</h2>
           <p className="mt-1 text-sm leading-relaxed">{step.what}</p>
-          <p className="mt-1.5 text-sm leading-relaxed text-muted"><strong className="font-semibold text-ink">Why it matters.</strong> {step.why}</p>
           {onPage && missing && <p className="mt-2 text-xs text-amber-200">This part of the page is not showing right now; scroll to find it.</p>}
           {!onPage && <p className="mt-2 text-xs text-muted">Loading the page…</p>}
         </div>

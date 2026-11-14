@@ -21,15 +21,15 @@ const pages = ["/", ...readdirSync(join(root, "src/app")).filter((d) => {
   }
 }).map((d) => `/${d}`)];
 
-/** Pages that are not features to show: the metrics page asks for a password, so its step is on the changelog. */
-const NOT_IN_TOUR = ["/metrics"];
+/** Pages that are not features to show: */
+const NOT_IN_TOUR: string[] = [];
 
 describe("guided tour", () => {
-  it("has unique steps, each with a title and one or two sentences of what and why", () => {
+  it("has unique steps, each with a title and one or two sentences of what", () => {
     expect(new Set(TOUR_STEPS.map((s) => s.id)).size).toBe(TOUR_STEPS.length);
     for (const s of TOUR_STEPS) {
       expect(s.title.length).toBeGreaterThan(0);
-      for (const text of [s.what, s.why]) {
+      for (const text of [s.what]) {
         const sentences = text.split(/(?<=[.!?])\s+(?=[A-Z])/).length;
         expect(sentences, `${s.id}: ${text}`).toBeGreaterThanOrEqual(1);
         expect(sentences, `${s.id}: ${text}`).toBeLessThanOrEqual(2);

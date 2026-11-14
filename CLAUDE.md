@@ -57,8 +57,8 @@ One roadmap item per chat, one pull request per item.
 - [x] **Integrity lab.** For one player's set of hands, plot the distribution of EV lost per decision against a human baseline. Play that is too close to solver output suggests real-time assistance; overly uniform sizing suggests a bot. Label it a prototype on synthetic data.
 - [x] **More hand-history formats.** `src/lib/poker/parser.ts` only reads the PokerStars format.
 - [x] **Engine depth.** Mixed-frequency and stack-depth-aware preflop charts, EV of raising (today only call versus fold), equity realisation instead of raw equity.
-- [x] **Production story.** Deployment, error monitoring, and a changelog that shows iteration after launch.
+- [x] **Production story.** Deployment and error monitoring.
 
 ### Last: present it
 
-- [x] **Guided tour.** A step-by-step walkthrough the author can click through with a hiring manager: each step highlights one feature on the real page (hand review, coach, range trainer, river solver, push/fold, session report, metrics, and whatever else has shipped by then), says in one or two plain sentences what it does and why it matters for game integrity or player study, and links to the page. It can be started from the home page and skipped or left at any step, works at 375px, and remembers nothing beyond the current visit. Build this last, so it covers every feature that exists.
+- [x] **Guided tour.** A step-by-step walkthrough the author can click through with a hiring manager: each step highlights one feature on the real page (hand review, coach, range trainer, river solver, push/fold, session report, metrics, and whatever else has shipped by then), says in one or two plain sentences what it does, and links to the page. It can be started from the home page and skipped or left at any step, works at 375px, and remembers nothing beyond the current visit. Build this last, so it covers every feature that exists.
